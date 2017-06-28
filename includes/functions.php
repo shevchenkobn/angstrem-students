@@ -5,8 +5,6 @@
  * Date: 26.06.17
  * Time: 22:32
  */
-require_once "constants.php";
-
 function redirect($destination)
 {
     if (preg_match("/^https?:\/\//", $destination))
@@ -35,7 +33,7 @@ function render($template, $values = array())
     {
         extract($values);
         require("../templates/header.php");
-        $templatePath = "./templates/$template";
+        $templatePath = "../templates/$template";
         require($templatePath);
         require("../templates/footer.php");
     }

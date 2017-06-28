@@ -3,13 +3,14 @@ RewriteBase /
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteBase /
-RewriteRule ^/errors/404\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /errors/404.php [L]
+RewriteRule .* /public/errors.php?code=404&page=$0 [L]
 </IfModule>
 RewriteEngine on
-RewriteCond %{REQUEST_URI} !^/public/index\.php$
-RewriteCond %{REQUEST_URI} !\.(gif|jpe?g|png|css|js|bmp)$
-#RewriteRule  ^/errors/[a-zA-Z0-9]+\.php$ /errors/404.php
-RewriteRule .* /public/index.php [L,R=302]
+RewriteCond %{REQUEST_URI} !^/public/index\.php.*
+RewriteCond %{REQUEST_URI} !^/public/errors.php?.+$
+RewriteCond %{REQUEST_URI} !\.(gif|jpe?g|png|css|js|bmp|ico)$
+RewriteCond %{REQUEST_METHOD} !POST
+#RewriteCond %{REQUEST_URI} !^/favicon\.ico$
+RewriteRule .* /public/index.php?page=$0 [L,R=302]

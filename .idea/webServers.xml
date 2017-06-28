@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="9a64f5d2-2d43-4bcf-a61d-c8d5e7930a74" name="angstrem-students.separateServer" url="http://ftp.angstrem-students.pe.hu">
+        <fileTransfer host="ftp.angstrem-students.pe.hu" port="21" rootFolder="/public_html">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="21" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

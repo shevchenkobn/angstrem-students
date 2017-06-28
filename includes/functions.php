@@ -45,10 +45,7 @@ function render($template, $values = array())
     }
     exit;
 }
-define(STAFF_DB_SERVER, "mysql.hostinger.com.ua");
-define(STAFF_DB_NAME, "u139489065_staff");
-define(STAFF_DB_USER, "u139489065_admin");
-define(STAFF_DB_PASS, "avengersStudy");
+
 function staff_db_query(/*$sql [, ... ] */)
 {
     static $handle;

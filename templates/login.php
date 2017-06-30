@@ -1,5 +1,12 @@
-<div class="row" style="padding-top: 120px">
-
+<div class="row" style="height: 120px;">
+    <?php  if (isset($errors)): ?>
+        <?php foreach ($errors as $error): ?>
+        <div class="alert alert-danger alert-dismissable fade in">
+            <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+            <strong>Ошибка!</strong> <?php echo $error ?>
+        </div>
+        <?php endforeach;?>
+    <?php endif; ?>
 </div>
 <div class="row">
     <div class="col-md-4 col-md-offset-4">

@@ -11,11 +11,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <title><?php echo isset($title) ? htmlspecialchars($title)
-            : "Ангстрем: ученики"?></title>
+            : "АНГСТРЕМ: ученики"?></title>
 </head>
 <body>
 <header>
-    <nav class="navbar navbar-inverse navbar-fixed-top">
+    <nav class="navbar navbar-default navbar-fixed-top">
         <div class="container-fluid">
             <div class="navbar-header">
                 <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main_navbar">

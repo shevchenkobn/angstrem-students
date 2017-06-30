@@ -27,7 +27,7 @@ function redirect($destination)
     exit;
 }
 
-function render($template, $values = array())
+function render($template, $values = [])
 {
     if (file_exists("../templates/$template"))
     {
@@ -69,6 +69,7 @@ function create_pdo($server, $database, $user, $pass)
 
         // ensure that PDO::prepare returns false when passed invalid SQL
         $handle->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+        $handle->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
     catch (Exception $e)
     {
@@ -85,7 +86,6 @@ function proceed_query($handle, $sql, $parameters)
         trigger_error($handle->errorInfo()[2], E_USER_ERROR);
         exit;
     }
-
     $results = $statement->execute($parameters);
 
     if ($results !== false)
@@ -97,55 +97,50 @@ function proceed_query($handle, $sql, $parameters)
         return false;
     }
 }
-//function query(/*$database, $sql [, ... ] */)
-//{
-//
-//    // SQL statement
-//    $sql = func_get_arg(0);
-//
-//    // parameters, if any
-//    $parameters = array_slice(func_get_args(), 1);
-//
-//    // try to connect to database
-//    static $handle;
-//    if (!isset($handle))
-//    {
-//        try
-//        {
-//            // connect to database
-//            $handle = new PDO("mysql:dbname=" . DATABASE . ";host=" . SERVER, USERNAME, PASSWORD);
-//
-//            // ensure that PDO::prepare returns false when passed invalid SQL
-//            $handle->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-//        }
-//        catch (Exception $e)
-//        {
-//            // trigger (big, orange) error
-//            trigger_error($e->getMessage(), E_USER_ERROR);
-//            exit;
-//        }
-//    }
-//
-//    // prepare SQL statement
-//    $statement = $handle->prepare($sql);
-//    if ($statement === false)
-//    {
-//        // trigger (big, orange) error
-//        trigger_error($handle->errorInfo()[2], E_USER_ERROR);
-//        exit;
-//    }
-//
-//    // execute SQL statement
-//    $results = $statement->execute($parameters);
-//
-//    // return result set's rows, if any
-//    if ($results !== false)
-//    {
-//        return $statement->fetchAll(PDO::FETCH_ASSOC);
-//    }
-//    else
-//    {
-//        return false;
-//    }
-//}
+function save_db_structure($filename = STUDENT_DB_STRUCTURE_JSON)
+{
+    $query_result = students_db_query("SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;",
+        STUDENTS_DB_NAME);
+    $table_names = shallow_array($query_result, "table_name");
+
+    $database = [];
+    $primary_keys = null;
+    foreach ($table_names as $name)
+    {
+        $query_result = students_db_query("SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
+            STUDENTS_DB_NAME, $name);
+        $database[$name] = shallow_array($query_result, "column_name");
+        if ($primary_keys === null)
+            $primary_keys = $database[$name];
+        else
+            $primary_keys = array_intersect($primary_keys, $database[$name]);
+    }
+    $database_structure = ["database" => $database, "primary_keys" => $primary_keys];
+    $json = json_encode($database_structure);
+    file_put_contents($filename, $json);
+    return $database;
+}
+function shallow_array($array, $single_key)
+{
+    $new_array = [];
+    foreach ($array as $subarray)
+    {
+        array_push($new_array, $subarray[$single_key]);
+    }
+    return $new_array;
+}
+function get_db_structure()
+{
+    $database_structure = null;
+    if (!is_readable(STUDENT_DB_STRUCTURE_JSON))
+    {
+        $database_structure = json_decode(file_get_contents(STUDENT_DB_STRUCTURE_JSON));
+    }
+    else
+    {
+        $database_structure = save_db_structure(STUDENT_DB_STRUCTURE_JSON);
+    }
+
+    // do some stuff with retrieved database structure
+}
 ?>

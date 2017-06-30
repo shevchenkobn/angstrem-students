@@ -10,4 +10,5 @@ if (!empty($_SESSION))
     unset($_SESSION);
     session_destroy();
 }
+redirect("index.php");
 ?>

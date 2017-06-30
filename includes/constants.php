@@ -17,4 +17,6 @@ define("STUDENTS_DB_SERVER", STAFF_DB_SERVER);
 define("STUDENTS_DB_NAME", "u139489065_istud");
 define("STUDENTS_DB_USER", "u139489065_odmen");
 define("STUDENTS_DB_PASS", STAFF_DB_PASS);
+
+define("STUDENT_DB_STRUCTURE_JSON", realpath(__DIR__."/../database_info/db_structure.json"));
 ?>

@@ -1,14 +1,6 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: bogdan
- * Date: 30.06.17
- * Time: 8:33
- */
-function translate($table, $column = null)
-{
-    $dictionary = [
-        'conracts_info' => ["Контракты",
+    return [
+        'contacts_info' => ["Контракты",
             "contract_number" => "Номер контракта",
             "conclusion_date" => "Дата заключения",
             "activation_date" => "Активация аккаунта",
@@ -34,16 +26,8 @@ function translate($table, $column = null)
             "form_number" => "Класс",
             "form_letter" => "Буква класса"],
         'students_info' => ["Медданные",
-            "contract_number" => "Номер контракта"]
+            "contract_number" => "Номер контракта",
+            "medical_features" => "Медицинские особенности",
+            "psychological_features" => "Психологические особенности"]
     ];
-    $translation = $column === null ? $table : $column;
-    if (key_exists($table, $dictionary))
-        if ($column === null)
-        {
-            $translation = $dictionary[$table][0];
-        }
-        else
-            if (key_exists($column, $dictionary[$table]))
-                $translation = $dictionary[$table][$column];
-    return $translation;
-}
+?>

@@ -5,8 +5,8 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
-    <link rel="stylesheet" href="<?= REAL_DOCUMENT_ROOT?>/css/styles.css">
-    <script src="<?= REAL_DOCUMENT_ROOT?>/js/script.js"></script>
+    <link rel="stylesheet" href="/<?= RELATIVE_DOCUMENT_ROOT?>css/styles.css">
+    <script src="/<?= RELATIVE_DOCUMENT_ROOT?>js/script.js"></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
@@ -24,7 +24,7 @@
                     <span class="icon-bar"></span>
                 </button>
                 <a class="navbar-brand" href="index.php">
-                    <img src="<?= REAL_DOCUMENT_ROOT?>/images/logo2.png" class="logo" width="32" height="32"
+                    <img src="/<?= RELATIVE_DOCUMENT_ROOT?>images/logo2.png" class="logo" width="32" height="32"
                          alt="АНГСТРЕМ" style="display: inline-block;">
                     АНГСТРЕМ
                 </a>

@@ -21,7 +21,8 @@
                     <label for="password">Пароль</label>
                     <input type="password" class="form-control" id="password" name="password">
                 </div>
-                <button type="submit" class="btn btn-block btn-primary" name="action" value="login">Авторизоваться</button>
+                <input type="hidden" name="action" value="login">
+                <button type="submit" class="btn btn-block btn-primary">Авторизоваться</button>
             </form></div>
         </div>
     </div>

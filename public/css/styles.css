@@ -10,6 +10,24 @@
     padding: 10px 15px;
 }
 
+label {
+    padding: 10px 0;
+}
+
+input[type="checkbox"] {
+    width: 1rem;
+    height: 20rem;
+    padding: 0;
+}
+
+.input-group {
+    padding-bottom: 2.5rem;
+}
+
+form {
+    padding-bottom: 50px;
+}
+
 /** Recoloring of navbar */
 .navbar-default {
     background-color: #4285f4;

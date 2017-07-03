@@ -8,11 +8,10 @@
 ini_set("display_errors", true);
 error_reporting(E_ALL);
 
-require "constants.php";
+require_once "constants.php";
 require_once "functions.php";
 
 session_start();
-//exit;
 if (!in_array($_SERVER["REQUEST_METHOD"], ["GET", "POST"]))
     redirect("index.php");
 elseif ($_SERVER["REQUEST_METHOD"] === "GET")
@@ -45,4 +44,5 @@ elseif ($_SERVER["REQUEST_METHOD"] === "GET")
         redirect("login.php");
     }
 }
+dump($_SERVER);
 ?>

@@ -26,7 +26,7 @@
                 <a class="navbar-brand" href="index.php">
                     <img src="/<?= RELATIVE_DOCUMENT_ROOT?>images/logo2.png" class="logo" width="32" height="32"
                          alt="АНГСТРЕМ" style="display: inline-block;">
-                    АНГСТРЕМ
+                    АНГСТРЕМ<small> ученики</small>
                 </a>
             </div>
             <div class="collapse navbar-collapse" id="main_navbar">

@@ -21,5 +21,5 @@ define("STUDENTS_DB_PASS", STAFF_DB_PASS);
 define("STUDENTS_DB_MONTHLY_FEE", 650);
 
 define("STUDENT_DB_STRUCTURE_JSON", realpath(__DIR__."/../database_info/db_structure.json"));
-define("STUDENT_DB_DICTIONARY_PHP", realpath(__DIR__."/../database_info/db_structure.json"));
+define("STUDENT_DB_DICTIONARY_PHP", realpath(__DIR__."/../database_info/dictionary.php"));
 ?>

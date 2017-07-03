@@ -16,9 +16,12 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
     }
     else
     {
-//        var_dump(students_db_query("SELECT COLUMN_NAME, column_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
-//            STUDENTS_DB_NAME, "students"));
-        render("main.php", ["title" => "Главная"]);
+        //save_db_structure();
+        render("main.php", ["title" => "Главная",
+            "display_checkboxes" => get_html_search_display_options([
+                "checkbox_wrap" => "checkbox-inline",
+                "fieldset" => "form-group",
+                "checkbox" => "form-control"])]);
     }
 }
 elseif ($_SERVER["REQUEST_METHOD"] === "POST")

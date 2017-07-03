@@ -5,6 +5,14 @@
  * Date: 26.06.17
  * Time: 22:32
  */
+function dump()
+{
+    echo "<pre>";
+    foreach (func_get_args() as $var)
+        var_dump($var);
+    echo "</pre>";
+}
+
 function redirect($destination)
 {
     if (preg_match("/^https?:\/\//", $destination))
@@ -22,8 +30,8 @@ function redirect($destination)
         $protocol = (isset($_SERVER["HTTPS"])) ? "https" : "http";
         $host = $_SERVER["HTTP_HOST"];
         $path = rtrim(dirname($_SERVER["PHP_SELF"]), "/\\");
-        echo "<a href='$protocol://$host$path/$destination'>$protocol://$host$path/$destination</a>";
-        //header("Location: $protocol://$host$path/$destination");
+        //echo "<a href='$protocol://$host$path/$destination'>$protocol://$host$path/$destination</a>";
+        header("Location: $protocol://$host$path/$destination");
     }
     exit;
 }
@@ -45,25 +53,53 @@ function render($template, $values = [])
     exit;
 }
 
-
 /**
  * Functions to work with databases.
  * May be incapsulated into the class in future together with constants.
  */
-function get_html_search_options($table_name = null)
+function get_html_search_display_options($css_classes = [], $table_name = null, $db_structure = null, $except_columns = null)
 {
+    // $fieldset, $legend, $checkbox, $label, $checkbox_wrap
+    extract($css_classes);
     $output_html = "";
+    if ($db_structure === null)
+        $db_structure = get_db_structure();
     if ($table_name === null)
     {
-        $db_structure = translate_database(get_db_structure());
-        foreach ($db_structure as $table_structure)
+        $except_columns = [];
+        $common_columns_written = false;
+        $database = $db_structure["database"];
+
+        foreach ($database as $table_name=>$table_structure)
         {
-            // generate html string to return encapsulating table in fieldset
+            $output_html .= "<div><fieldset". (isset($fieldset) ? " class='$fieldset'" : ""). ">" .
+                "<legend". (isset($legend) ? " class='$legend'" : "") .">".$database[$table_name]["translation"]."</legend>".
+                get_html_search_display_options($css_classes, $table_name, $db_structure, $except_columns).
+                "</fieldset></div>";
+            if ($common_columns_written === false)
+            {
+                $except_columns = $db_structure["common_columns"];
+                $common_columns_written = true;
+            }
         }
     }
     else
     {
-        // generate html string to return
+        $database = $db_structure["database"];
+        if (array_key_exists($table_name, $database))
+        {
+            $table = $database[$table_name]["entity"];
+            foreach ($table as $column_name => $column)
+            {
+                if (!in_array($column_name, $except_columns))
+                    $output_html .= "<div". (isset($checkbox_wrap) ? " class='$checkbox_wrap'" : "") .">" .
+                        "<label".(isset($label) ? " class='$label'" : "") .">".
+                        "<input type='checkbox' name='$column_name' checked". (isset($checkbox) ? " class='$checkbox'" : "") ."> ".
+                        $column["translation"]."</label>" . "</div>";
+            }
+        }
+        else
+            $output_html .= "Произошла ошибка";
     }
     return $output_html;
 }
@@ -76,49 +112,49 @@ function save_db_structure($filename = STUDENT_DB_STRUCTURE_JSON)
     $query_result = students_db_query("SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;",
         STUDENTS_DB_NAME);
     $table_names = shallow_array($query_result, "table_name");
-
     $database = [];
     $common_columns = null;
-    $condition = function (&$column_info)
-    {
-        if (strpos($column_info["column_type"], "enum(") === 0)
-        {
-            $column_info["name"] = $column_info["column_name"];
-            unset($column_info["column_name"]);
-            $column_info["options"] = explode(',',
-                preg_replace("/(enum\(|'|\))/", '', $column_info["column_type"]));
-            unset($column_info["column_type"]);
-            return false;
-        }
-        else
-            return true;
-    };
-    $uintersect = function ($a, $b)
-    {
-        if (gettype($a) == "array")
-            $a = json_encode($a);
-        if (gettype($b) == "array")
-            $b = json_encode($a);
-        if (gettype($a) === "string" && gettype($b) === "string")
-            return strcmp($a, $b);
-        elseif ($a < $b)
-            return -1;
-        elseif ($a > $b)
-            return 1;
-        else
-            return 0;
-    };
-    $uintersect(new stdClass(), "fucked up");
-    foreach ($table_names as $name)
+//    $condition = function (&$column_info)
+//    {
+//        $column_info["translation"] = translate_name($column_info["column_name"]);
+//        unset($column_info["column_name"]);
+//        if (strpos($column_info["column_type"], "enum(") === 0)
+//        {
+//            $column_info["options"] = explode(',',
+//                preg_replace("/(enum\(|'|\))/", '', $column_info["column_type"]));
+//            unset($column_info["column_type"]);
+//        }
+//        return false;
+//    };
+    foreach ($table_names as $table_name)
     {
         $query_result = students_db_query("SELECT column_name, column_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
-            STUDENTS_DB_NAME, $name);
-        $database[$name] = shallow_array($query_result, "column_name", $condition);
+            STUDENTS_DB_NAME, $table_name);
+        $table = [];
+        foreach ($query_result as $column)
+        {
+            $table[$column["column_name"]] =
+                ["translation" => translate_name($table_name, $column["column_name"])];
+            if (strpos($column["column_type"], "enum(") === 0)
+            {
+                $table[$column["column_name"]]["options"] = explode(',',
+                    preg_replace("/(enum\(|'|\))/", '', $column["column_type"]));
+            }
+        }
+        $database[$table_name] = ["translation" => translate_name($table_name),
+            "entity" => $table];
+        $query_result = students_db_query("select DISTINCT COLUMN_NAME 
+            from information_schema.STATISTICS 
+            where table_schema = ? 
+            and table_name = ? 
+            and index_type = ?;",
+            STUDENTS_DB_NAME, $table_name, 'FULLTEXT');
+        $database[$table_name]["fulltext"] = shallow_array($query_result, "COLUMN_NAME");
         if ($common_columns === null)
-            $common_columns = $database[$name];
+            $common_columns = array_keys($database[$table_name]["entity"]);
         else
         {
-            $common_columns = array_uintersect($common_columns, $database[$name], $uintersect);
+            $common_columns = array_intersect($common_columns, array_keys($database[$table_name]["entity"]));
         }
     }
     $database_structure = ["database" => $database, "common_columns" => $common_columns];
@@ -126,15 +162,12 @@ function save_db_structure($filename = STUDENT_DB_STRUCTURE_JSON)
     file_put_contents($filename, $json);
     return $database_structure;
 }
-function shallow_array($array, $single_key, $comparator = null)
+function shallow_array($array, $single_key)
 {
     $new_array = [];
     foreach ($array as $subarray)
     {
-        if ($comparator !== null && is_callable($comparator) && !$comparator($subarray))
-            array_push($new_array, $subarray);
-        else
-            array_push($new_array, $subarray[$single_key]);
+        array_push($new_array, $subarray[$single_key]);
     }
     return $new_array;
 }
@@ -152,40 +185,17 @@ function get_db_structure()
 
     return $database_structure;
 }
-function translate_database($db_structure)
-{
-    foreach ($db_structure as $table_name=>$table)
-    {
-        $table_name = [$table_name => translate_name($table_name)];
 
-    }
-    return $db_structure;
-}
-function translate_table(&$table_structure, $table_name = null)
+$dictionary = require STUDENT_DB_DICTIONARY_PHP;
+function set_dictionary($filename)
 {
-    if ($table_name === null)
-    {
-        foreach ($table_structure as $index => $column) {
-            if (gettype($column) == "array") {
-                $column["name"] = [$column["name"] => translate_name($column["name"])];
-            }
-            else
-            {
-                $column = [$column, translate_name($column)];
-            }
-        }
-    }
-    else
-    {
-        $table_struct_copy = $table_structure;
-        translate_table($table_struct_copy);
-        $table = [[$table_name => translate_name($table_name)] => $table_struct_copy];
-        return $table;
-    }
+    global $dictionary;
+    $dictionary = require $filename;
 }
+
 function translate_name($table, $column = null)
 {
-    $dictionary = require STUDENT_DB_DICTIONARY_PHP;
+    global $dictionary;
     $translation = $column === null ? $table : $column;
     if (key_exists($table, $dictionary))
         if ($column === null)
@@ -197,6 +207,7 @@ function translate_name($table, $column = null)
                 $translation = $dictionary[$table][$column];
     return $translation;
 }
+
 function staff_db_query(/*$sql [, ... ] */)
 {
     static $handle;

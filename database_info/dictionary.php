@@ -1,7 +1,8 @@
 <?php
     return [
-        'contacts_info' => ["Контракты",
+        'contracts_info' => ["Контракты",
             "contract_number" => "Номер контракта",
+            "balance" => "Остаток",
             "conclusion_date" => "Дата заключения",
             "activation_date" => "Активация аккаунта",
             "deactivation_date" => "Деактивация аккаунта"],
@@ -15,10 +16,11 @@
             "father_phone" => "Телефон отца",
             "postal_office" => "Отделение Новой почты"],
         'payments' => ["Оплаты",
+            "payment_id" => "Номер оплаты",
             "contract_number" => "Номер контракта",
             "start_period" => "Начало периода оплаты",
             "end_period" => "Конец периода оплаты",
-            "sum" => "Сумма"],
+            "payment_timestamp" => "Дата и время оплаты"],
         'students' => ["Ученики",
             "contract_number" => "Номер контракта",
             "name" => "Имя",

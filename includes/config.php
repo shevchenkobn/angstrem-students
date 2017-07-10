@@ -11,6 +11,22 @@ error_reporting(E_ALL);
 require_once "constants.php";
 require_once "functions.php";
 
+spl_autoload_register(function ($class)
+{
+    include CLASSES_PATH . $class . '.php';
+});
+
+interface IDBConnection
+{
+    function Query($sql);
+}
+
+interface IDBController
+{
+    function GetHTMLSearchDisplayOptions();
+    function ProceedGeneralRequest($post);
+}
+
 session_start();
 if (!in_array($_SERVER["REQUEST_METHOD"], ["GET", "POST"]))
     redirect("index.php");

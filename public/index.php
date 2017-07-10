@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
     {
         //save_db_structure();
         render("main.php", ["title" => "Главная",
-            "display_checkboxes" => get_html_search_display_options([
+            "display_checkboxes" => DBWorker::GetInstance()->GetHTMLSearchDisplayOptions([
                 "checkbox_wrap" => "checkbox-inline",
                 "fieldset" => "form-group",
                 "checkbox" => "form-control"])]);

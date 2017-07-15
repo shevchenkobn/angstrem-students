@@ -35,12 +35,14 @@ elseif ($_SERVER["REQUEST_METHOD"] === "GET")
     $__php_self_test = "%^".REAL_DOCUMENT_ROOT."([A-Za-z0-9-_]+/)*[A-Za-z0-9-_]+\.php$%";
     $__get_page_test = "%^(/?" . RELATIVE_DOCUMENT_ROOT . "|/)?([A-Za-z0-9-_]+/)*[A-Za-z0-9-_]+\.php$%";
     $__index_test = "_^/?" . RELATIVE_DOCUMENT_ROOT . 'index\.php$_';
+    $__errors_test = "%^/?" . RELATIVE_DOCUMENT_ROOT . 'errors\.php\?code=[0-9]{3}(&[a-z0-9]+=.+)*$%';
     if(preg_match($__php_self_test, $_SERVER["PHP_SELF"]))
     {
-        if (preg_match($__index_test, $_SERVER["PHP_SELF"]))
+        $error_page = preg_match($__errors_test, $_SERVER["PHP_SELF"] . "?" . $_SERVER["QUERY_STRING"]);
+        if (preg_match($__index_test, $_SERVER["PHP_SELF"]) || $error_page)
         {
             if(!(isset($_GET["page"]) && preg_match($__get_page_test, $_GET["page"])) &&
-                !preg_match($__index_test, $_SERVER["REQUEST_URI"]))
+                !preg_match($__index_test, $_SERVER["REQUEST_URI"]) && !$error_page)
             {
                 redirect("index.php");
             }
@@ -55,10 +57,9 @@ elseif ($_SERVER["REQUEST_METHOD"] === "GET")
         redirect("index.php");
     }
     if (empty($_SESSION) && !(preg_match($__index_test, $_SERVER["PHP_SELF"])
-        && isset($_GET["page"]) && $_GET["page"] === "login.php"))
+        && isset($_GET["page"]) && preg_match("%(/?.".RELATIVE_DOCUMENT_ROOT.")?login.php%", $_GET["page"])))
     {
         redirect("login.php");
     }
 }
-dump($_SERVER);
 ?>

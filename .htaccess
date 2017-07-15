@@ -7,11 +7,9 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule .* /public/errors.php?code=404&page=$0 [L]
 </IfModule>
-RewriteEngine on
-RewriteCond %{REQUEST_URI} !^/public/index\.php\?page=/?public/([A-Za-z0-9-_]+/)*[A-Za-z0-9-_]+\.php
-RewriteCond %{REQUEST_URE} !^/public(/index\.php|/|)$
-RewriteCond %{REQUEST_URI} !^/public/errors\.php?code=[0-9]{3}(&[a-z]=.+)*$
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^\/?public\/index\.php.*
+RewriteCond %{REQUEST_URI} !^/?public/errors\.php.*
 RewriteCond %{REQUEST_URI} !\.(gif|jpe?g|png|css|js|bmp|ico)$
 RewriteCond %{REQUEST_METHOD} !POST
-RewriteRule (/|) /public/index.php [L,R=302]
-RewriteRule .* /public/index.php?page=$0 [L,R=302]
+RewriteRule .* /public/index.php?page=$0 [L,R=301]

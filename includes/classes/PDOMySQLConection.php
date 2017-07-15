@@ -17,7 +17,7 @@ class PDOMySQLConection implements IDBConnection
 
     public function __construct($server, $database, $user, $password)
     {
-        if (!filter_var($server, FILTER_VALIDATE_URL))
+        if (!preg_match("%^[a-zA-Z0-9](\.[a-zA-Z0-9])*%", $server))
             throw new InvalidArgumentException("$server is not a URL");
         $this->server = $server;
         if (!preg_match("%^[a-zA-Z0-9_$]+$%", $database))

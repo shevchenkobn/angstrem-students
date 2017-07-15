@@ -12,6 +12,15 @@ function dump()
         var_dump($var);
     echo "</pre>";
 }
+function dump_to_string()
+{
+    ob_start();
+    echo "<pre>";
+    foreach (func_get_args() as $var)
+        var_dump($var);
+    echo "</pre>";
+    return ob_get_clean();
+}
 
 function redirect($destination)
 {
@@ -30,7 +39,8 @@ function redirect($destination)
         $protocol = (isset($_SERVER["HTTPS"])) ? "https" : "http";
         $host = $_SERVER["HTTP_HOST"];
         $path = rtrim(dirname($_SERVER["PHP_SELF"]), "/\\");
-        //echo "<a href='$protocol://$host$path/$destination'>$protocol://$host$path/$destination</a>";
+//        echo "<a href='$protocol://$host$path/$destination'>$protocol://$host$path/$destination</a>";
+//        dump($_SERVER);
         header("Location: $protocol://$host$path/$destination");
     }
     exit;

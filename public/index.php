@@ -1,27 +1,47 @@
 <?php
 require_once "../includes/config.php";
+$css_classes_display_columns = [
+    "checkbox_wrap" => "checkbox-inline btn",
+    "fieldset" => "form-group",
+    "checkbox" => "form-control"];
+$db_worker = DBWorker::GetInstance();
 if ($_SERVER["REQUEST_METHOD"] === "GET")
 {
     if (isset($_GET["page"]))
     {
         $page = str_replace([RELATIVE_DOCUMENT_ROOT, "/"], "", $_GET["page"]);
+        $tables = array_keys($db_worker->GetDatabaseStructure()["database"]);
         switch ($page) {
             case "login.php":
             case "logout.php":
                 require $page;
                 break;
+
             default:
-                redirect("index.php");
+                $table = str_replace(".php", "", $page);
+                if (in_array($table, $tables))
+                {
+                    $db_structure = $db_worker->GetDatabaseStructure();
+                    $table_name = $db_structure["database"][$table]["translation"];
+                    render("main.php", ["title" => "Таблица: $table_name",
+                        "table" => $table,
+                        "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, $table)]);
+                }
+                else
+                    redirect("index.php");
         }
     }
     else
     {
-        //save_db_structure();
+//        dump(DBWorker::GetInstance()->GetDatabaseStructure());
+//        dump(StudentsDBConnection::GetInstance()->Query("select DISTINCT COLUMN_NAME
+//            from information_schema.STATISTICS
+//            where table_schema = ?
+//            and table_name = ?
+//            and (COLUMN_NAME = ? OR COLUMN_NAME = ?);",
+//            StudentsDBConnection::DATABASE, "students", "name", "surname"));
         render("main.php", ["title" => "Главная",
-            "display_checkboxes" => DBWorker::GetInstance()->GetHTMLSearchDisplayOptions([
-                "checkbox_wrap" => "checkbox-inline",
-                "fieldset" => "form-group",
-                "checkbox" => "form-control"])]);
+            "display_checkboxes" => DBWorker::GetInstance()->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
     }
 }
 elseif ($_SERVER["REQUEST_METHOD"] === "POST")
@@ -30,8 +50,9 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
         switch ($_POST["action"])
         {
             case "get_full_info":
-                $db_answer = proceed_index_page_request($_POST["query"]);
-                render(["db_answer" => $db_answer]);
+                $db_answer = $db_worker->ProceedGeneralRequest($_POST);
+                render("main.php", ["db_answer" => $db_answer,
+                    "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
                 break;
             default:
                 redirect("index.php");

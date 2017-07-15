@@ -30,35 +30,35 @@
                 </a>
             </div>
             <div class="collapse navbar-collapse" id="main_navbar">
-<!--                <ul class="nav navbar-nav">-->
-<!--                    <li class="active"><a href="index.php">-->
-<!--                            <span class="glyphicon glyphicon-home"></span> На главную-->
-<!--                        </a></li>-->
-<!--                    <li><a href="shopping.php">-->
-<!--                            <span class="glyphicon glyphicon-menu-hamburger"></span> Products-->
-<!--                        </a></li>-->
-<!--                    <li><a href="cart.php">-->
-<!--                            <span class="glyphicon glyphicon-shopping-cart"></span> Cart-->
-<!--                        </a></li>-->
-<!--                </ul>-->
-                <ul class="nav navbar-nav navbar-right">
-                    <?php if (!empty($_SESSION)): ?>
-                        <li><p class="navbar-text">
-                                <?php if(isset($_SESSION["user"]))
-                                    echo htmlspecialchars($_SESSION['user']["fullname"]);
-                                ?>
-                            </p></li>
-                        <?php if (isset($_SESSION['user'])): ?>
-                            <li><a href="profile.php">
-                                    <span class="glyphicon glyphicon-user"></span> Профиль
-                                </a></li>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                    <li class="active"><a href="<?php echo empty($_SESSION) ? "login.php" : "logout.php"?>">
-                            <span class="glyphicon glyphicon-log-<?php echo !empty($_SESSION) ? "out" : "in"?>"></span> <?php
-                            echo empty($_SESSION) ? "Войти" : "Выйти"?></a>
+            <?php switch (!empty($_SESSION)): ?><?php case true: ?>
+                <ul class="nav navbar-nav">
+                    <li class="dropdown active">
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Таблицы
+                            <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                        <?php foreach (DBWorker::GetInstance()->GetDatabaseStructure()["database"] as $table => $table_info): ?>
+                            <li><a href="index.php?page=<?= $table?>.php"><span class="glyphicon glyphicon-list-alt"></span> <?= $table_info["translation"]?></a></li>
+                        <?php endforeach; ?>
+                        </ul>
                     </li>
                 </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="dropdown active">
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#"><?= htmlspecialchars($_SESSION['user']["fullname"]) ?>
+                            <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="profile.php"><span class="glyphicon glyphicon-user"></span> Профиль</a></li>
+                            <li><a href="logout.php"><span class="glyphicon glyphicon-log-in"></span> Выйти</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            <?php break; case false: ?>
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="active"><a href="login.php">
+                            <span class="glyphicon glyphicon-log-in"></span> Войти</a>
+                    </li>
+                </ul>
+            <?php endswitch; ?>
             </div>
         </div>
     </nav>

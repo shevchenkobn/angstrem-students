@@ -8,12 +8,15 @@
  */
 class PDOMySQLConection implements IDBConnection
 {
+    const GET_ASSOC = PDO::FETCH_ASSOC;
+    const GET_GROUP_BY_FIRST_COLUMN = PDO::FETCH_GROUP;
     private $server;
     private $database;
     private $user;
     private $password;
 
     private $handle;
+    private $PDOFetchMode;
 
     public function __construct($server, $database, $user, $password)
     {
@@ -30,6 +33,7 @@ class PDOMySQLConection implements IDBConnection
             throw new InvalidArgumentException("$password is not a user name");
         $this->password = $password;
         $this->CreatePDO();
+        $this->PDOFetchMode = self::GET_ASSOC;
     }
 
     private function CreatePDO()
@@ -77,11 +81,16 @@ class PDOMySQLConection implements IDBConnection
 
         if ($results !== false)
         {
-            return $statement->fetchAll(PDO::FETCH_ASSOC);
+            return $statement->fetchAll($this->PDOFetchMode);
         }
         else
         {
             return false;
         }
+    }
+    public function SetPDOFetchMode($pdo_constant)
+    {
+        if ($pdo_constant > 0 && $pdo_constant % 2 == 0)
+            $this->PDOFetchMode = $pdo_constant;
     }
 }

@@ -19,6 +19,7 @@ spl_autoload_register(function ($class)
 interface IDBConnection
 {
     function Query($sql);
+    function SetPDOFetchMode($pdo_constant);
 }
 
 interface IDBController

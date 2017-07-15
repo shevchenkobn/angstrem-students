@@ -36,4 +36,8 @@ class StudentsDBConnection implements IDBConnection
         else
             return $this->dbConnection->Query($sql, array_slice(func_get_args(), 1));
     }
+    public function SetPDOFetchMode($pdo_constant)
+    {
+        $this->dbConnection->SetPDOFetchMode($pdo_constant);
+    }
 }

@@ -202,19 +202,12 @@ class DBWorker implements IDBController
         $database = $this->studentDBStructure["database"];
         if ($table_name === null)
         {
-            $common_columns_written = false;
-
             foreach ($database as $table_name=>$table_structure)
             {
                 $output_html .= "<div><fieldset". (isset($fieldset) ? " class='$fieldset'" : ""). ">" .
                     "<legend". (isset($legend) ? " class='$legend'" : "") .">".$database[$table_name]["translation"]."</legend>".
                     $this->GetHTMLSearchDisplayOptions($css_classes, $table_name).
                     "</fieldset></div>";
-                if ($common_columns_written === false)
-                {
-                    $except_columns = $this->studentDBStructure["common_columns"];
-                    $common_columns_written = true;
-                }
             }
         }
         else
@@ -224,10 +217,11 @@ class DBWorker implements IDBController
                 $table = $database[$table_name]["entity"];
                 foreach ($table as $column_name => $column)
                 {
-                    $output_html .= "<div". (isset($checkbox_wrap) ? " class='$checkbox_wrap'" : "") .">" .
-                        "<label".(isset($label) ? " class='$label'" : "") .">".
-                        "<input type='checkbox' name='$table_name".self::DISPLAY_OPTIONS_NAME_DELIM."$column_name' checked". (isset($checkbox) ? " class='$checkbox'" : "") ."> ".
-                        $column["translation"]."</label>" . "</div>";
+                    if (!in_array($column_name, $this->studentDBStructure["common_columns"]))
+                        $output_html .= "<div". (isset($checkbox_wrap) ? " class='$checkbox_wrap'" : "") .">" .
+                            "<label".(isset($label) ? " class='$label'" : "") .">".
+                            "<input type='checkbox' name='$table_name".self::DISPLAY_OPTIONS_NAME_DELIM."$column_name' checked". (isset($checkbox) ? " class='$checkbox'" : "") ."> ".
+                            $column["translation"]."</label>" . "</div>";
                 }
             }
             else
@@ -255,13 +249,13 @@ class DBWorker implements IDBController
             if (empty($this->studentDBStructure["database"][$table]["unique"]))
             {
                 if (!key_exists($table, $request_columns["single_row"]))
-                    $request_columns[$table] = [];
+                    $request_columns[$table] = $this->studentDBStructure["common_columns"];
                 array_push($request_columns[$table]["single_row"], $table.'.'.$column);
             }
             else
             {
                 if (!key_exists($table, $request_columns["multi_row"]))
-                    $request_columns[$table] = [];
+                    $request_columns[$table] = $this->studentDBStructure["common_columns"];
                 array_push($request_columns[$table]["multi_row"], $table.'.'.$column);
             }
         }
@@ -336,16 +330,40 @@ class DBWorker implements IDBController
         {
             $db_answer = [];
             $query_result = $this->studentDBConnection->Query($single_row_query, $single_row_parameters);
+            if ($translate)
+                foreach ($query_result as $i => $row)
+                {
+                    foreach ($row as $column => $value)
+                    {
+                        $pieces = explode(".", $column);
+                        $row[$this->TranslateName($pieces[0], $pieces[1])] = $row[$column];
+                        unset($row[$column]);
+                    }
+                }
             $db_answer["single_row"] = $query_result;
             $db_answer["multi_row"] = [];
+            $this->studentDBConnection->SetPDOFetchMode(PDOMySQLConection::GET_GROUP_BY_FIRST_COLUMN);
             foreach ($multi_row_queries as $table => $query_info)
             {
                 $query_result = $this->studentDBConnection->Query($query_info["query"], $query_info["parameters"]);
-                // TODO: Make $query_result look like "table" => "student" => all rows of this student
-                // TODO: Implement proper translation
-                $db_answer["multi_row"][$table] = $query_result;
-            }
+                // TODO: Implement proper translation (below)
 
+                foreach ($query_result as $student => $rows)
+                {
+                    foreach ($rows as $row)
+                    {
+                        foreach ($row as $column => $value)
+                        {
+                            $row[$this->TranslateName($table, $column)] = $row[$column];
+                            unset($row[$column]);
+                        }
+                    }
+                }
+                $query_result[$this->TranslateName($table)] = $query_result;
+                unset($query_result[$table]);
+                $db_answer["multi_row"][$this->TranslateName($table)] = $query_result;
+            }
+            $this->studentDBConnection->SetPDOFetchMode(PDOMySQLConection::GET_ASSOC);
         }
         catch (Exception $exception)
         {

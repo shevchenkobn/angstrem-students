@@ -50,7 +50,7 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
         switch ($_POST["action"])
         {
             case "get_full_info":
-                $db_answer = $db_worker->ProceedGeneralRequest($_POST);
+                $db_answer = $db_worker->ProceedGeneralRequest($_POST, true);
                 render("main.php", ["db_answer" => $db_answer,
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
                 break;

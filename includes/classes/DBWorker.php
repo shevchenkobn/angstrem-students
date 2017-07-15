@@ -32,6 +32,7 @@ class DBWorker implements IDBController
     const GENERAL_QUERY_KEYWORDS_DELIM = "/[\s,]+/";
     const QUERY_HTML_NAME = "query";
     const ACTION_HTML_NAME = "action";
+    const GENERAL_REQUEST_ACTION = "!!!full_info";
 
     private $studentDBConnection;
     private $staffDBConnection;

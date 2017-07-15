@@ -31,7 +31,7 @@
             <?= $display_checkboxes?>
         </div>
     </div>
-    <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= isset($table) ? $table : "get_full_info"?>">
+    <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= isset($table) ? $table : DBWorker::GENERAL_REQUEST_ACTION?>">
 </form>
 <?php if (isset($db_answer)): ?>
 <div id="relevantStudents">

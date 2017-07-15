@@ -49,7 +49,8 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
     if (isset($_POST["action"]))
         switch ($_POST["action"])
         {
-            case "get_full_info":
+            case DBWorker::GENERAL_REQUEST_ACTION:
+                echo "came"; exit;
                 $db_answer = $db_worker->ProceedGeneralRequest($_POST, true);
                 render("main.php", ["db_answer" => $db_answer,
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);

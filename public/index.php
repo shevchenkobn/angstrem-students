@@ -19,6 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
 
             default:
                 $table = str_replace(".php", "", $page);
+                dump($tables, $table);
                 if (in_array($table, $tables))
                 {
                     $db_structure = $db_worker->GetDatabaseStructure();
@@ -33,24 +34,17 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
     }
     else
     {
-//        dump(DBWorker::GetInstance()->GetDatabaseStructure());
-//        dump(StudentsDBConnection::GetInstance()->Query("select DISTINCT COLUMN_NAME
-//            from information_schema.STATISTICS
-//            where table_schema = ?
-//            and table_name = ?
-//            and (COLUMN_NAME = ? OR COLUMN_NAME = ?);",
-//            StudentsDBConnection::DATABASE, "students", "name", "surname"));
         render("main.php", ["title" => "Главная",
             "display_checkboxes" => DBWorker::GetInstance()->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
     }
 }
 elseif ($_SERVER["REQUEST_METHOD"] === "POST")
 {
+    //dump($_POST);
     if (isset($_POST["action"]))
         switch ($_POST["action"])
         {
             case DBWorker::GENERAL_REQUEST_ACTION:
-                echo "came"; exit;
                 $db_answer = $db_worker->ProceedGeneralRequest($_POST, true);
                 render("main.php", ["db_answer" => $db_answer,
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);

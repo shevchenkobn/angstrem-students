@@ -10,6 +10,14 @@
           <option name="port" value="21" />
         </fileTransfer>
       </webServer>
+      <webServer id="358ebdea-e9e4-41af-b7ec-8cfe6755e844" name="ravenn-hosting" url="http://students.ravenn.pp.ua">
+        <fileTransfer host="students.ravenn.pp.ua" port="22" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
     </option>
   </component>
 </project>

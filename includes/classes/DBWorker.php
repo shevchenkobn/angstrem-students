@@ -11,8 +11,8 @@ class DBWorker implements IDBController
     private static function InitializeConstants()
     {
         self::$STUDENT_DB_STRUCTURES_JSON["RU"] = realpath(__DIR__."/../../")."/database_info/db_structure_ru.json";
-        //dump(self::$STUDENT_DB_STRUCTURES_JSON, self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"]);
         self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"] = realpath(__DIR__."/../../")."/database_info/dictionary_ru.php";
+        self::$STAFF_COLUMNS_ARRAY_FILE = realpath(__DIR__."/../../")."/database_info/staff_columns.php";
     }
     public static function GetInstance($language = "RU")
     {
@@ -27,6 +27,7 @@ class DBWorker implements IDBController
 
     private static $STUDENT_DB_STRUCTURES_JSON = [];
     private static $STUDENT_DB_DICTIONARIES_ARRAYS = [];
+    private static $STAFF_COLUMNS_ARRAY_FILE = "";
     const STUDENTS_MONTHLY_FEE = 650;
     const DISPLAY_OPTIONS_NAME_DELIM = "/";
     const GENERAL_QUERY_KEYWORDS_DELIM = "/[\s,]+/";
@@ -34,8 +35,7 @@ class DBWorker implements IDBController
     const ACTION_HTML_NAME = "action";
     const GENERAL_REQUEST_ACTION = "!!!full_info";
 
-    private $studentDBConnection;
-    private $staffDBConnection;
+    private $DBConnection;
     private $studentDBStructure;
     private $language;
     private $dictionary;
@@ -48,11 +48,11 @@ class DBWorker implements IDBController
         if (!array_key_exists($language, self::$STUDENT_DB_STRUCTURES_JSON))
             throw new ErrorException("No dictionary for database structure.");
         $this->language = $language;
-        //dump($this->language,self::$STUDENT_DB_DICTIONARIES_ARRAYS,self::$STUDENT_DB_STRUCTURES_JSON);
 
 
-        $this->studentDBConnection = StudentsDBConnection::GetInstance();
-        $this->staffDBConnection = StaffDBConnection::GetInstance();
+        $this->DBConnection = PDOMySQLConection::GetInstance();
+
+        $this->SetDictionary();
 
         $this->studentDBStructure = $this->GetDBStructure();
     }
@@ -81,16 +81,33 @@ class DBWorker implements IDBController
     }
     private function CacheDBStructure($filename)
     {
-        $query_result = $this->studentDBConnection->Query("SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;",
-            StudentsDBConnection::DATABASE);
+        $sql_pieces = ["SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?",
+            " AND ", "table_name <> ?", ";"];
+        $parameters = [PDOMySQLConection::DATABASE];
+        $sql = $sql_pieces[0];
+        if (is_readable(self::$STAFF_COLUMNS_ARRAY_FILE) && ($staff_columns = require self::$STAFF_COLUMNS_ARRAY_FILE))
+        {
+            $sql .= $sql_pieces[1];
+            for ($i = 0, $count = count($staff_columns); $i < $count; $i++)
+            {
+                $sql .= $sql_pieces[2];
+                array_push($parameters, $staff_columns[$i]);
+                if ($i < $count - 1)
+                    $sql .= $sql_pieces[1];
+            }
+        }
+        $sql .= $sql_pieces[3];
+        $query_result = $this->DBConnection->Query($sql, $parameters);
+
+
         $table_names = $this->ShallowArrayByKey($query_result, "table_name");
         $database = [];
         $common_columns = null;
 
         foreach ($table_names as $table_name)
         {
-            $query_result = $this->studentDBConnection->Query("SELECT column_name, column_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
-                StudentsDBConnection::DATABASE, $table_name);
+            $query_result = $this->DBConnection->Query("SELECT column_name, column_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
+                PDOMySQLConection::DATABASE, $table_name);
             $table = [];
             foreach ($query_result as $column)
             {
@@ -104,12 +121,12 @@ class DBWorker implements IDBController
             }
             $database[$table_name] = ["translation" => $this->TranslateName($table_name),
                 "entity" => $table];
-            $query_result = $this->studentDBConnection->Query("select DISTINCT COLUMN_NAME 
+            $query_result = $this->DBConnection->Query("select DISTINCT COLUMN_NAME 
             from information_schema.STATISTICS 
             where table_schema = ? 
             and table_name = ? 
             and index_type = ?;",
-                StudentsDBConnection::DATABASE, $table_name, 'FULLTEXT');
+                PDOMySQLConection::DATABASE, $table_name, 'FULLTEXT');
             $database[$table_name]["fulltext"] = $this->ShallowArrayByKey($query_result, "COLUMN_NAME");
             if ($common_columns === null)
                 $common_columns = array_keys($database[$table_name]["entity"]);
@@ -117,8 +134,6 @@ class DBWorker implements IDBController
             {
                 $common_columns = array_intersect($common_columns, array_keys($database[$table_name]["entity"]));
             }
-//            echo "<h1>$table_name</h1>";
-//            dump($database, $common_columns);
         }
         if (!count($common_columns))
             throw new DatabaseException("There is no relations between tables.");
@@ -130,7 +145,7 @@ class DBWorker implements IDBController
             and table_name = ?
             and (", "COLUMN_NAME = ?", " OR ", ") and NON_UNIQUE = ?;"];
             $sql = $sql_pieces[0];
-            $parameters = [StudentsDBConnection::DATABASE, $table_name];
+            $parameters = [PDOMySQLConection::DATABASE, $table_name];
             $common_columns_number = count($common_columns);
             for ($i = 0; $i < $common_columns_number; $i++)
             {
@@ -141,9 +156,7 @@ class DBWorker implements IDBController
             }
             $sql .= $sql_pieces[3];
             array_push($parameters, "0");
-//            echo "<h1>query</h1>";
-//            dump($sql, $parameters);
-            $query_result = StudentsDBConnection::GetInstance()->Query($sql, $parameters);
+            $query_result = $this->DBConnection->Query($sql, $parameters);
             $unique_common_columns = $this->ShallowArrayByKey($query_result, "COLUMN_NAME");
             $database[$table_name]["unique"] = $unique_common_columns;
         }
@@ -173,21 +186,24 @@ class DBWorker implements IDBController
          * First level values are arrays where key is column name and [0] key is key for table_name translation.
          * Second level values are translations.
          */
-        if (!$this->dictionary)
-        {
-            $this->SetDictionary();
-        }
-
+        $table_dictionary = $this->dictionary["db_structure"];
         $translation = $column === null ? $table : $column;
-        if (key_exists($table, $this->dictionary))
+        if (key_exists($table, $table_dictionary))
             if ($column === null)
             {
-                $translation = $this->dictionary[$table][0];
+                $translation = $table_dictionary[$table][0];
             }
             else
-                if (key_exists($column, $this->dictionary[$table]))
-                    $translation = $this->dictionary[$table][$column];
+                if (key_exists($column, $table_dictionary[$table]))
+                    $translation = $table_dictionary[$table][$column];
         return $translation;
+    }
+    private function GetErrorMessage($error_key = 0)
+    {
+        $message = $error_key;
+        if (key_exists($error_key, $this->dictionary["errors"]))
+            $message = $this->dictionary["errors"][$error_key];
+        return $message;
     }
     public function GetDatabaseStructure()
     {
@@ -226,7 +242,7 @@ class DBWorker implements IDBController
                 }
             }
             else
-                $output_html .= "Произошла ошибка";
+                $output_html .= $this->GetErrorMessage();
         }
         return $output_html;
     }
@@ -247,81 +263,106 @@ class DBWorker implements IDBController
             $table = $pieces[0];
             $column = $pieces[1];
 
-            if (empty($this->studentDBStructure["database"][$table]["unique"]))
+            if (!empty($this->studentDBStructure["database"][$table]["unique"]))
             {
                 if (!key_exists($table, $request_columns["single_row"]))
-                    $request_columns[$table] = $this->studentDBStructure["common_columns"];
-                array_push($request_columns[$table]["single_row"], $table.'.'.$column);
+                    $request_columns["single_row"][$table] = [];
+                array_push($request_columns["single_row"][$table], $column);
             }
             else
             {
                 if (!key_exists($table, $request_columns["multi_row"]))
-                    $request_columns[$table] = $this->studentDBStructure["common_columns"];
-                array_push($request_columns[$table]["multi_row"], $table.'.'.$column);
+                {
+                    $request_columns["multi_row"][$table] = $this->studentDBStructure["common_columns"];
+                }
+                array_push($request_columns["multi_row"][$table], $column);
             }
         }
         if (count($request_columns["multi_row"]) === 0 && count($request_columns["single_row"]) === 0)
-            return ["error" => "No columns to display"];
+            return ["error" => $this->GetErrorMessage("no_rows")];
 
         $keywords = preg_split(self::GENERAL_QUERY_KEYWORDS_DELIM, $query, -1, PREG_SPLIT_NO_EMPTY);
         for ($i = 0, $count = count($keywords) - 1; $i < $count; $i++)
         {
-            $keywords[$i] = "+'" . $keywords[$i] . "'";
+            $keywords[$i] = "+" . $keywords[$i];
         }
-        $keywords[$count] = "+*'" . $keywords[$i] . "'*";
+        $keywords[$count] = "+*" . $keywords[$i] . "*";
         $query = implode(" ", $keywords);
 
         // TODO: Test code below and add payments display
         // single_row query preparations
-        $sql_pieces = ["SELECT ", ", ", " FROM ", " JOIN ", " USING(", ")" ,
-            " WHERE", " MATCH (", ") AGAINST (? IN BOOLEAN MODE)", " OR", ";"];
+        $sql_pieces = ["SELECT ", " AS ", ", ", " FROM ", " JOIN ", " USING(", ")" ,
+            " WHERE", " MATCH (", ") AGAINST (:query IN BOOLEAN MODE)", " OR", ";"];
+        $is_first = true;
+
         foreach ($request_columns["single_row"] as $table => $columns)
         {
-            $request_columns[$table] = implode($sql_pieces[1], $columns);
+            if ($is_first)
+            {
+                $request_columns["single_row"][$table] = $this->GetTranslatedColumnString($this->studentDBStructure["common_columns"], $table) .
+                    $sql_pieces[2];
+                $is_first = false;
+            }
+            else
+                $request_columns["single_row"][$table] = "";
+            $request_columns["single_row"][$table] .= $this->GetTranslatedColumnString($columns, $table);
         }
-        $single_row_query = $sql_pieces[0] . implode($sql_pieces[1], $request_columns);
-        $single_row_parameters = [];
+        $multi_row_where_query = $single_row_query = $sql_pieces[0];
+        $single_row_query .= implode($sql_pieces[2], $request_columns["single_row"]);
+        $multi_row_where_query .= $this->studentDBStructure["common_columns"][0];
+
         $is_first = true;
-        $common_columns = implode($sql_pieces[1], $this->studentDBStructure["common_columns"]);
+
+        $common_columns = $this->GetColumnString($this->studentDBStructure["common_columns"]);
+
         foreach ($request_columns["single_row"] as $table => $columns_string)
         {
             if ($is_first)
             {
                 $is_first = false;
-                $single_row_query .= $sql_pieces[2] . $table;
+                $from_table = $sql_pieces[3] . $table;
+                $single_row_query .= $from_table;
+                $multi_row_where_query .= $from_table;
                 continue;
             }
-            $single_row_query .= $sql_pieces[3] . $table;
-            $single_row_query .= $sql_pieces[4] . $common_columns . $sql_pieces[5];
+            $appendant = $sql_pieces[4] . $this->EscapeTableIdentifier($table) .
+                $sql_pieces[5] . $common_columns . $sql_pieces[6];
+            $single_row_query .= $appendant;
+            $multi_row_where_query .= $appendant;
         }
 
-        $match_against_piece = $sql_pieces[6];
-        $count = count($request_columns);
+        $match_against_piece = $sql_pieces[7];
+        $count = count($request_columns["single_row"]);
         $counter = 0;
         foreach ($request_columns["single_row"] as $table => $columns_string)
         {
-            $match_against_piece .= $sql_pieces[7] . $common_columns . $sql_pieces[8];
-            array_push($single_row_parameters, $query);
+            $fulltext_columns = $this->GetColumnString($this->studentDBStructure["database"][$table]["fulltext"], $table);
+            $match_against_piece .= $sql_pieces[8] . $fulltext_columns . $sql_pieces[9];
+            //array_push($single_row_parameters, $query);
 
             if ($counter < $count - 1)
-                $match_against_piece .= $sql_pieces[9];
+                $match_against_piece .= $sql_pieces[10];
             $counter++;
         }
-        $single_row_query .= $match_against_piece . $sql_pieces[10];
+        $single_row_parameters = [":query" => $query];
+        $single_row_query .= $match_against_piece . $sql_pieces[11];
+        $multi_row_where_query .= $match_against_piece;
 
         // multi-row query preparations
-        $sql_pieces = ["SELECT ", ", ", " FROM ", " GROUP BY (", ");"];
+        $sql_pieces = ["SELECT ", ", ", " FROM ", " WHERE ", " IN (", ") GROUP BY (", ");"];
 
         foreach ($request_columns["multi_row"] as $table => $columns)
         {
-            $request_columns["multi_row"][$table] = implode($sql_pieces[1], $columns);
+            $array = ["first" => $columns[0], "string" => $this -> GetTranslatedColumnString($columns, $table)];
+            $request_columns["multi_row"][$table] = $array;
         }
 
         $multi_row_queries = [];
-        foreach ($request_columns["multi_row"] as $table => $column_string)
+        foreach ($request_columns["multi_row"] as $table => $columns)
         {
-            $temp_query = $sql_pieces[0] . $column_string . $sql_pieces[2] . $table .
-                $match_against_piece . $sql_pieces[3] . $common_columns . $sql_pieces[4];
+            $temp_query = $sql_pieces[0] . $columns["string"] . $sql_pieces[2] . $table .
+                $sql_pieces[3] . $columns["first"] . $sql_pieces[4] . $multi_row_where_query .
+                $sql_pieces[5] . $common_columns . $sql_pieces[6];
             $temp_parameters = $single_row_parameters;
             $multi_row_queries[$table] = ["query" => $temp_query, "parameters" => $temp_parameters];
         }
@@ -330,41 +371,33 @@ class DBWorker implements IDBController
         try
         {
             $db_answer = [];
-            $query_result = $this->studentDBConnection->Query($single_row_query, $single_row_parameters);
-            if ($translate)
-                foreach ($query_result as $i => $row)
-                {
-                    foreach ($row as $column => $value)
-                    {
-                        $pieces = explode(".", $column);
-                        $row[$this->TranslateName($pieces[0], $pieces[1])] = $row[$column];
-                        unset($row[$column]);
-                    }
-                }
+            $query_result = $this->DBConnection->QueryWithBinding($single_row_query, $single_row_parameters);
+
             $db_answer["single_row"] = $query_result;
             $db_answer["multi_row"] = [];
-            $this->studentDBConnection->SetPDOFetchMode(PDOMySQLConection::GET_GROUP_BY_FIRST_COLUMN);
+            $this->DBConnection->SetPDOFetchMode(PDOMySQLConection::GET_GROUP_BY_FIRST_COLUMN);
             foreach ($multi_row_queries as $table => $query_info)
             {
-                $query_result = $this->studentDBConnection->Query($query_info["query"], $query_info["parameters"]);
-                // TODO: Implement proper translation (below)
-
-                foreach ($query_result as $student => $rows)
-                {
-                    foreach ($rows as $row)
-                    {
-                        foreach ($row as $column => $value)
-                        {
-                            $row[$this->TranslateName($table, $column)] = $row[$column];
-                            unset($row[$column]);
-                        }
-                    }
-                }
-                $query_result[$this->TranslateName($table)] = $query_result;
-                unset($query_result[$table]);
-                $db_answer["multi_row"][$this->TranslateName($table)] = $query_result;
+                $query_result = $this->DBConnection->QueryWithBinding($query_info["query"], $query_info["parameters"]);
+//                // TODO: Implement proper translation (below)
+//
+//                foreach ($query_result as $student => $rows)
+//                {
+//                    foreach ($rows as $row)
+//                    {
+//                        foreach ($row as $column => $value)
+//                        {
+//                            $row[$this->TranslateName($table, $column)] = $row[$column];
+//                            unset($row[$column]);
+//                        }
+//                    }
+//                }
+//                $query_result[$this->TranslateName($table)] = $query_result;
+//                unset($query_result[$table]);
+                $translation = $this->studentDBStructure["database"][$table]["translation"];
+                $db_answer["multi_row"][$translation] = $query_result;
             }
-            $this->studentDBConnection->SetPDOFetchMode(PDOMySQLConection::GET_ASSOC);
+            $this->DBConnection->SetPDOFetchMode(PDOMySQLConection::GET_ASSOC);
         }
         catch (Exception $exception)
         {
@@ -377,6 +410,49 @@ class DBWorker implements IDBController
                 ]];
         }
         return $db_answer;
+    }
+
+    private function GetTranslatedColumnString($columns, $table_name, $escape = true, $delimeters = [" AS ", ", "])
+    {
+        $column_string = "";
+        for ($i = 0, $count = count($columns); $i < $count; $i++)
+        {
+            $translation = $this->studentDBStructure["database"][$table_name]["entity"][$columns[$i]]["translation"];
+            $column_string .= ($escape ? $this->EscapeTableIdentifier($table_name) : $table_name) . "." .
+                ($escape ? $this->EscapeTableIdentifier($columns[$i]) : $columns[$i]) .
+                $delimeters[0] . ($escape ? $this->EscapeTableIdentifier($translation) : $translation);
+            if ($i < $count - 1)
+                $column_string .= $delimeters[1];
+        }
+        return $column_string;
+    }
+    private function GetColumnString($columns, $table_name = "", $escape = true, $delimeter = ", ")
+    {
+        $column_string = "";
+        if (empty($table_name))
+            for ($i = 0, $count = count($columns); $i < $count; $i++)
+            {
+                $column_string .= ($escape ? $this->EscapeTableIdentifier($columns[$i]) : $columns[$i]);
+                if ($i < $count - 1)
+                    $column_string .= $delimeter;
+            }
+        else
+        {
+            if ($escape)
+                $table_name = $this->EscapeTableIdentifier($table_name);
+            $table_name .= ".";
+            for ($i = 0, $count = count($columns); $i < $count; $i++) {
+                $column_string .= $table_name . ($escape ? $this->EscapeTableIdentifier($columns[$i]) : $columns[$i]);
+                if ($i < $count - 1)
+                    $column_string .= $delimeter;
+            }
+        }
+        return $column_string;
+    }
+
+    private function EscapeTableIdentifier($name, $escape_char = "`")
+    {
+        return $escape_char . $name . $escape_char;
     }
 }
 class DatabaseException extends Exception {}

@@ -9,6 +9,7 @@
     <script src="/<?= RELATIVE_DOCUMENT_ROOT?>js/script.js"></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <meta charset="UTF-8">
     <title><?php echo isset($title) ? htmlspecialchars($title)
             : "АНГСТРЕМ: ученики"?></title>
@@ -36,8 +37,8 @@
                         <a class="dropdown-toggle" data-toggle="dropdown" href="#">Таблицы
                             <span class="caret"></span></a>
                         <ul class="dropdown-menu">
-                        <?php foreach (DBWorker::GetInstance()->GetDatabaseStructure()["database"] as $table => $table_info): ?>
-                            <li><a href="index.php?page=<?= $table?>.php"><span class="glyphicon glyphicon-list-alt"></span> <?= $table_info["translation"]?></a></li>
+                        <?php foreach (DBWorker::GetInstance()->GetDatabaseStructure()["database"] as $__table => $table_info): ?>
+                            <li><a href="index.php?page=<?= $__table?>.php"><span class="glyphicon glyphicon-list-alt"></span> <?= $table_info["translation"]?></a></li>
                         <?php endforeach; ?>
                         </ul>
                     </li>

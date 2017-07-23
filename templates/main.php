@@ -33,85 +33,85 @@
     </div>
     <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= isset($table) ? $table : DBWorker::GENERAL_REQUEST_ACTION?>">
 </form>
-<?php if (isset($db_answer)): ?>
-<div id="relevantStudents">
-    <h2>Результаты:</h2>
-    <? if (isset($table)):
-    if (count($db_answer["single_row"])):
-        foreach ($db_answer["single_row"] as $i => $student): ?>
-            <h3>Ученик #<?= $i + 1?>:</h3>
-            <table class="table table-responsive">
-                <tr class="info">
-                <?
-                foreach ($student as $column_name => $value)
-                    echo "<th>$column_name</th>";
-                ?>
-                </tr>
-                <tr>
-                <?
-                foreach ($student as $column_name => $value)
-                    echo "<td>$value</td>";
-                ?>
-                </tr>
-            </table>
-            <? foreach ($db_answer["multi_row"] as $table => $students): ?>
-                <h4>Таблица <?= $table?></h4>
-                <table class="table table-responsive table-striped">
-                    <? $contract_number = reset($student);
-                    foreach ($students[$contract_number] as $i => $row):
-                        if ($i === 0):?>
-                        <tr class="info">
-                            <? foreach ($row as $column => $value)
-                                echo "<th>$column</th>"?>
-                        </tr>
-                        <? endif; ?>
-                        <tr>
-                            <? foreach ($row as $column => $value)
-                                echo "<td>$value</td>"?>
-                        </tr>
-                    <? endforeach; ?>
-                </table>
-            <? endforeach;?>
-    <? endforeach;
-    elseif (true):
-        foreach ($db_answer["multi_row"] as $table => $students): ?>
-        <h3>Таблица <?= $table?></h3>
-            <? $counter = 1;
-            foreach ($students as $student => $rows):?>
-                <h4>Ученик #<?= $counter++ ?></h4>
-                <table class="table table-responsive table-striped">
-                    <? foreach ($rows as $i => $row):
-                        if ($i === 0):?>
-                            <tr class="info">
-                            <? foreach ($row as $column => $value)
-                                echo "<th>$column</th>"?>
-                            </tr>
-                        <? endif; ?>
-                        <tr>
-                            <? foreach ($row as $column => $value)
-                                echo "<td>$value</td>"?>
-                        </tr>
-                    <? endforeach;?>
-                </table>
-        <? endforeach;?>
-    <? endforeach;
-    endif;
-    elseif (true):?>
-        <table class="table table-responsive table-striped">
-        <? foreach ($db_answer as $i => $row):
-            if ($i === 0):?>
-                <tr class="info">
-                    <? foreach ($row as $column => $value)
-                        echo "<th>$column</th>"?>
-                </tr>
-            <? endif; ?>
-            <tr>
-                <? foreach ($row as $column => $value)
-                    echo "<td>$value</td>"?>
-            </tr>
-        <? endforeach; ?>
-        </table>
-    <? endif; ?>
+<?php if (isset($db_answer)): dump($db_answer);?>
+<!--<div id="relevantStudents">-->
+<!--    <h2>Результаты:</h2>-->
+<!--    --><?php //if (isset($table)):
+//    if (count($db_answer["single_row"])):
+//        foreach ($db_answer["single_row"] as $i => $student): ?>
+<!--            <h3>Ученик #--><?//= $i + 1?><!--:</h3>-->
+<!--            <table class="table table-responsive">-->
+<!--                <tr class="info">-->
+<!--                --><?php
+//                foreach ($student as $column_name => $value)
+//                    echo "<th>$column_name</th>";
+//                ?>
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                --><?php
+//                foreach ($student as $column_name => $value)
+//                    echo "<td>$value</td>";
+//                ?>
+<!--                </tr>-->
+<!--            </table>-->
+<!--            --><?php //foreach ($db_answer["multi_row"] as $table => $students): ?>
+<!--                <h4>Таблица --><?//= $table?><!--</h4>-->
+<!--                <table class="table table-responsive table-striped">-->
+<!--                    --><?php //$contract_number = reset($student);
+//                    foreach ($students[$contract_number] as $i => $row):
+//                        if ($i === 0):?>
+<!--                        <tr class="info">-->
+<!--                            --><?php //foreach ($row as $column => $value)
+//                                echo "<th>$column</th>"?>
+<!--                        </tr>-->
+<!--                        --><?php //endif; ?>
+<!--                        <tr>-->
+<!--                            --><?php //foreach ($row as $column => $value)
+//                                echo "<td>$value</td>"?>
+<!--                        </tr>-->
+<!--                    --><?php //endforeach; ?>
+<!--                </table>-->
+<!--            --><?php //endforeach;?>
+<!--    --><?php //endforeach;
+//    elseif (true):
+//        foreach ($db_answer["multi_row"] as $table => $students): ?>
+<!--        <h3>Таблица --><?//= $table?><!--</h3>-->
+<!--            --><?php //$counter = 1;
+//            foreach ($students as $student => $rows):?>
+<!--                <h4>Ученик #--><?//= $counter++ ?><!--</h4>-->
+<!--                <table class="table table-responsive table-striped">-->
+<!--                    --><?php //foreach ($rows as $i => $row):
+//                        if ($i === 0):?>
+<!--                            <tr class="info">-->
+<!--                            --><?php //foreach ($row as $column => $value)
+//                                echo "<th>$column</th>"?>
+<!--                            </tr>-->
+<!--                        --><?php //endif; ?>
+<!--                        <tr>-->
+<!--                            --><?php //foreach ($row as $column => $value)
+//                                echo "<td>$value</td>"?>
+<!--                        </tr>-->
+<!--                    --><?php //endforeach;?>
+<!--                </table>-->
+<!--        --><?php //endforeach;?>
+<!--    --><?php //endforeach;
+//    endif;
+//    elseif (true):?>
+<!--        <table class="table table-responsive table-striped">-->
+<!--        --><?php //foreach ($db_answer as $i => $row):
+//            if ($i === 0):?>
+<!--                <tr class="info">-->
+<!--                    --><?php //foreach ($row as $column => $value)
+//                        echo "<th>$column</th>"?>
+<!--                </tr>-->
+<!--            --><?php //endif; ?>
+<!--            <tr>-->
+<!--                --><?php //foreach ($row as $column => $value)
+//                    echo "<td>$value</td>"?>
+<!--            </tr>-->
+<!--        --><?php //endforeach; ?>
+<!--        </table>-->
+<!--    --><?php //endif; ?>
     <a href="index.php" id="clearTable" class="btn btn-success">Очистить</a>
 </div>
 <?php endif; ?>

@@ -8,8 +8,23 @@
  */
 class PDOMySQLConection implements IDBConnection
 {
+    public static function GetInstance()
+    {
+        if (!self::$instance)
+            self::$instance = new PDOMySQLConection(self::SERVER, self::DATABASE,
+                self::USER, self::PASSWORD);
+        return self::$instance;
+    }
+    private static $instance;
+
     const GET_ASSOC = PDO::FETCH_ASSOC;
     const GET_GROUP_BY_FIRST_COLUMN = PDO::FETCH_GROUP;
+
+    const SERVER = "localhost";
+    const USER = "students";
+    const PASSWORD = "shevchenkobn@gmail.com";
+    const DATABASE = "students";
+
     private $server;
     private $database;
     private $user;
@@ -18,7 +33,7 @@ class PDOMySQLConection implements IDBConnection
     private $handle;
     private $PDOFetchMode;
 
-    public function __construct($server, $database, $user, $password)
+    private function __construct($server, $database, $user, $password)
     {
         if (!preg_match("%^[a-zA-Z0-9](\.[a-zA-Z0-9])*%", $server))
             throw new InvalidArgumentException("$server is not a URL");
@@ -29,8 +44,6 @@ class PDOMySQLConection implements IDBConnection
         if (!preg_match("%^[a-zA-Z0-9_$]+$%", $user))
             throw new InvalidArgumentException("$user is not a user name");
         $this->user = $user;
-        if (!preg_match("%^[a-zA-Z0-9_$]{6,}$%", $password))
-            throw new InvalidArgumentException("$password is not a user name");
         $this->password = $password;
         $this->CreatePDO();
         $this->PDOFetchMode = self::GET_ASSOC;
@@ -41,7 +54,7 @@ class PDOMySQLConection implements IDBConnection
         try
         {
             $this->handle = new PDO("mysql:dbname=" . $this->database . ";host=" . $this->server,
-                $this->user, $this->password);
+                $this->user, $this->password, array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"));
 
             // ensure that PDO::prepare returns false when passed invalid SQL
             $this->handle->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
@@ -60,10 +73,8 @@ class PDOMySQLConection implements IDBConnection
         if (count($argv) >= 1)
         {
             $sql = $argv[0];
-            if (count($argv) == 2)
+            if (count($argv) == 2 && is_array($argv[1]))
             {
-                if (!is_array($argv[1]))
-                    throw new InvalidArgumentException("Invalid query parameters");
                 $parameters = $argv[1];
             }
             elseif (count($argv) !== 1)
@@ -81,7 +92,53 @@ class PDOMySQLConection implements IDBConnection
 
         if ($results !== false)
         {
-            return $statement->fetchAll($this->PDOFetchMode);
+            return $statement->fetchAll(PDO::FETCH_ASSOC);
+        }
+        else
+        {
+            return false;
+        }
+    }
+    public function QueryWithBinding($sql, $parameters)
+    {
+        $sql_pieces = ["SET ", " = ", ", ", ";"];
+        $count = count($parameters);
+        $i = 0;
+        $set_query = $sql_pieces[0];
+        foreach ($parameters as $name => $value)
+        {
+            $set_query .= str_replace(":", "@", $name) . $sql_pieces[1] . $name;
+
+            if ($i < $count - 1)
+            {
+                $set_query .= $sql_pieces[2];
+            }
+            else
+                $set_query .= $sql_pieces[3];
+            $i++;
+        }
+        $statement = $this->handle->prepare($set_query);
+        if ($statement === false)
+        {
+            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
+            exit;
+        }
+        foreach ($parameters as $name => &$value)
+            $statement->bindParam($name, $value);
+
+        $statement->execute();
+
+        $sql = str_replace(":", "@", $sql);
+        $statement = $this->handle->prepare($sql);
+        if ($statement === false)
+        {
+            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
+            exit;
+        }
+        $results = $statement->execute();
+        if ($results !== false)
+        {
+            return $statement->fetchAll(PDO::FETCH_ASSOC);
         }
         else
         {
@@ -90,7 +147,7 @@ class PDOMySQLConection implements IDBConnection
     }
     public function SetPDOFetchMode($pdo_constant)
     {
-        if ($pdo_constant > 0 && $pdo_constant % 2 == 0)
+        if (is_int($pdo_constant) && $pdo_constant >= 0)
             $this->PDOFetchMode = $pdo_constant;
     }
 }

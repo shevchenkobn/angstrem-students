@@ -20,7 +20,7 @@ else
             array_push($errors, "Ошибка в логине.");
         if (strlen($_POST["password"]) > 72 || $_POST["password"] == "")
             array_push($errors, "Недопустимая длина пароля.");
-        $user = StaffDBConnection::GetInstance()->Query("SELECT * FROM `users` WHERE `email`=?;", $email);
+        $user = PDOMySQLConection::GetInstance()->Query("SELECT * FROM `staff_users` WHERE `email`=?;", $email);
         if ($user === false)
             array_push($errors, "Внутренняя ошибка сервера. Попробуйте еще раз.");
         if (empty($user))

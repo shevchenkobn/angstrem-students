@@ -7,6 +7,7 @@
  */
 ini_set("display_errors", true);
 error_reporting(E_ALL);
+header('Content-Type: text/html; charset=utf-8');
 
 require_once "constants.php";
 require_once "functions.php";
@@ -27,6 +28,8 @@ interface IDBController
     function GetHTMLSearchDisplayOptions();
     function ProceedGeneralRequest($post);
 }
+
+//dump(exec("id"));
 
 session_start();
 if (!in_array($_SERVER["REQUEST_METHOD"], ["GET", "POST"]))

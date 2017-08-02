@@ -4,7 +4,6 @@ $css_classes_display_columns = [
     "checkbox_wrap" => "checkbox-inline btn",
     "fieldset" => "form-group",
     "checkbox" => "form-control"];
-$db_worker = DBWorker::GetInstance();
 if ($_SERVER["REQUEST_METHOD"] === "GET")
 {
     if (isset($_GET["page"]))
@@ -19,7 +18,6 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
 
             default:
                 $table = str_replace(".php", "", $page);
-                dump($tables, $table);
                 if (in_array($table, $tables))
                 {
                     $db_structure = $db_worker->GetDatabaseStructure();
@@ -35,17 +33,16 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
     else
     {
         render("main.php", ["title" => "Главная",
-            "display_checkboxes" => DBWorker::GetInstance()->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+            "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
     }
 }
 elseif ($_SERVER["REQUEST_METHOD"] === "POST")
 {
-    //dump($_POST);
-    if (isset($_POST["action"]))
-        switch ($_POST["action"])
+    if (isset($_POST[DBWorker::ACTION_HTML_NAME]))
+        switch ($_POST[DBWorker::ACTION_HTML_NAME])
         {
             case DBWorker::GENERAL_REQUEST_ACTION:
-                $db_answer = $db_worker->ProceedGeneralRequest($_POST, true);
+                $db_answer = $db_worker->ProceedGeneralRequest($_POST);
                 render("main.php", ["db_answer" => $db_answer,
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
                 break;

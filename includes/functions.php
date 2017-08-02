@@ -62,4 +62,10 @@ function render($template, $values = [])
     }
     exit;
 }
+
+function array_swap(&$array, $swap_a, $swap_b = 0){
+    $temp = $array[$swap_a];
+    $array[$swap_a] = $array[$swap_b];
+    $array[$swap_b] = $temp;
+}
 ?>

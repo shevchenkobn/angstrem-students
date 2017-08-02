@@ -19,6 +19,7 @@ spl_autoload_register(function ($class)
 
 interface IDBConnection
 {
+    function QueryWithBinding($sql, $parameters);
     function Query($sql);
     function SetPDOFetchMode($pdo_constant);
 }
@@ -27,6 +28,8 @@ interface IDBController
 {
     function GetHTMLSearchDisplayOptions();
     function ProceedGeneralRequest($post);
+    function ObfuscateColumnName($table, $column);
+    function DeobfuscateColumnName($key);
 }
 
 //dump(exec("id"));
@@ -34,6 +37,11 @@ interface IDBController
 session_start();
 if (!in_array($_SERVER["REQUEST_METHOD"], ["GET", "POST"]))
     redirect("index.php");
+elseif ($_SERVER["REQUEST_METHOD"] === "POST" && empty($_SESSION)
+    && !preg_match("%^(/?" . RELATIVE_DOCUMENT_ROOT . "|/)?login\.php$%", $_SERVER["PHP_SELF"]))
+{
+    redirect("login.php");
+}
 elseif ($_SERVER["REQUEST_METHOD"] === "GET")
 {
     $__php_self_test = "%^".REAL_DOCUMENT_ROOT."([A-Za-z0-9-_]+/)*[A-Za-z0-9-_]+\.php$%";
@@ -61,9 +69,10 @@ elseif ($_SERVER["REQUEST_METHOD"] === "GET")
         redirect("index.php");
     }
     if (empty($_SESSION) && !(preg_match($__index_test, $_SERVER["PHP_SELF"])
-        && isset($_GET["page"]) && preg_match("%(/?.".RELATIVE_DOCUMENT_ROOT.")?login.php%", $_GET["page"])))
+        && isset($_GET["page"]) && preg_match("%(/?".RELATIVE_DOCUMENT_ROOT.")?login.php%", $_GET["page"])))
     {
         redirect("login.php");
     }
 }
+$db_worker = DBWorker::GetInstance();
 ?>

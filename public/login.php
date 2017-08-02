@@ -14,8 +14,16 @@ else
     {
         if ($_POST["action"] != "login")
             render("login.php", ["title" => "Авторизация", "errors" => ["Неизвестная ошибка. Попробуйте снова."]]);
+        foreach ($_POST as $key => $value)
+        {
+            if (strpos($key, DBWorker::OBFUSCATOR_KEY_PREFIX) === 0)
+            {
+                $_POST[$db_worker->DeobfuscateColumnName($key)["column"]] = $value;
+                unset($_POST[$key]);
+            }
+        }
         $errors = [];
-        $email = trim($_POST["login"]);
+        $email = trim($_POST["email"]);
         if (!filter_var($email, FILTER_VALIDATE_EMAIL))
             array_push($errors, "Ошибка в логине.");
         if (strlen($_POST["password"]) > 72 || $_POST["password"] == "")
@@ -36,5 +44,5 @@ else
         }
     }
 }
-    render("login.php", ["title" => "Авторизация"]);
+    render("login.php", ["title" => "Авторизация", "db_worker" => $db_worker]);
 ?>

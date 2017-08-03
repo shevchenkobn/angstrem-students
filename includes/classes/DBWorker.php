@@ -503,6 +503,32 @@ class DBWorker implements IDBController
             $this->OrderTableArray($request_columns["single_row"]);
             $this->OrderTableArray($request_columns["multi_row"]);
         }
+        else
+        {
+            if (!empty($this->studentDBStructure["database"][$table]["unique"]))
+                $table_type = "single_row";
+            else
+                $table_type = "multi_row";
+
+            foreach ($post as $key => $value)
+            {
+                if ($key == self::QUERY_HTML_NAME)
+                {
+                    $request_columns["query"] = $value;
+                    continue;
+                }
+                if ($key == self::ACTION_HTML_NAME)
+                    continue;
+                $continue = false;
+                switch ($key)
+                {
+
+                }
+                if ($continue)
+                    continue;
+                array_push($request_columns[$table_type], $this->DeobfuscateColumnName($key)["column"]);
+            }
+        }
         return $request_columns;
     }
     private function CreateColumnObfuscator()

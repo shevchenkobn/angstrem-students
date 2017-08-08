@@ -68,4 +68,14 @@ function array_swap(&$array, $swap_a, $swap_b = 0){
     $array[$swap_a] = $array[$swap_b];
     $array[$swap_b] = $temp;
 }
+
+function str_repeat_delim($string, $multiplier, $delim = ", ")
+{
+    $result = $string;
+    for ($i = 1; $i < $multiplier; $i++)
+    {
+        $result .= $delim . $string;
+    }
+    return $result;
+}
 ?>

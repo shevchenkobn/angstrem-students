@@ -5,6 +5,10 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
+    <!-- Bootstrapped select -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
+
     <link rel="stylesheet" href="/<?= RELATIVE_DOCUMENT_ROOT?>css/styles.css">
     <script src="/<?= RELATIVE_DOCUMENT_ROOT?>js/script.js"></script>
 
@@ -42,6 +46,7 @@
                         <?php endforeach; ?>
                         </ul>
                     </li>
+                    <li><a href="index.php?page=add_new.php"><span class="glyphicon glyphicon-edit"></span> Добавить</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
                     <li class="dropdown active">

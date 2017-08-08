@@ -26,8 +26,12 @@ interface IDBConnection
 
 interface IDBController
 {
+    function GetDBStructure();
     function GetHTMLSearchDisplayOptions();
+    function GetHTMLAddNewForm();
+    function AddNewStudent($post);
     function ProceedGeneralRequest($post);
+    function ProceedTableRequest($post, $table_name);
     function ObfuscateColumnName($table, $column);
     function DeobfuscateColumnName($key);
 }
@@ -75,4 +79,9 @@ elseif ($_SERVER["REQUEST_METHOD"] === "GET")
     }
 }
 $db_worker = DBWorker::GetInstance();
+$css_classes_display_columns = [
+    "checkbox_wrap" => "checkbox-inline btn",
+    "fieldset" => "form-group",
+    "checkbox" => "form-control"];
+//dump($db_worker->GetDBStructure());
 ?>

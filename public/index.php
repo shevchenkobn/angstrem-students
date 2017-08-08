@@ -1,19 +1,18 @@
 <?php
 require_once "../includes/config.php";
-$css_classes_display_columns = [
-    "checkbox_wrap" => "checkbox-inline btn",
-    "fieldset" => "form-group",
-    "checkbox" => "form-control"];
+$tables = array_keys($db_worker->GetDatabaseStructure()["database"]);
 if ($_SERVER["REQUEST_METHOD"] === "GET")
 {
     if (isset($_GET["page"]))
     {
         $page = str_replace([RELATIVE_DOCUMENT_ROOT, "/"], "", $_GET["page"]);
-        $tables = array_keys($db_worker->GetDatabaseStructure()["database"]);
         switch ($page) {
             case "login.php":
             case "logout.php":
                 require $page;
+                break;
+            case "add_new.php":
+                render("add_new.php", ["title" => "Добавить нового ученика", "form" => $db_worker->GetHTMLAddNewForm()]);
                 break;
 
             default:
@@ -46,8 +45,24 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
                 render("main.php", ["db_answer" => $db_answer,
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
                 break;
+            case DBWorker::ADD_NEW_ACTION:
+                $db_worker->AddNewStudent($_POST);
+                render("add_new.php", ["title" => "Добавить нового ученика", "form" => $db_worker->GetHTMLAddNewForm()]);
+                break;
             default:
-                redirect("index.php");
+                $table = $_POST[DBWorker::ACTION_HTML_NAME];
+                if (in_array($table, $tables))
+                {
+                    $db_structure = $db_worker->GetDatabaseStructure();
+                    $table_name = $db_structure["database"][$table]["translation"];
+                    render("main.php", ["title" => "Результаты: $table_name",
+                        "db_answer" => $db_worker->ProceedTableRequest($_POST, $table),
+                        "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, "payments"),
+                        "table" => $table
+                    ]);
+                }
+                else
+                    redirect("index.php");
         }
     else
         redirect("index.php");

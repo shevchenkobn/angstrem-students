@@ -6,6 +6,10 @@
  * Date: 09.07.17
  * Time: 13:25
  */
+
+/**
+ * Do not think about creating obfuscation for table names
+ */
 class DBWorker implements IDBController
 {
     private static function InitializeConstants()
@@ -41,6 +45,7 @@ class DBWorker implements IDBController
     const ACTION_HTML_NAME = "a";
     const MATCH_AGAINST_PARAMETER = ":query";
     const GENERAL_REQUEST_ACTION = "full";
+    const ADD_NEW_ACTION = "n";
     const OBFUSCATOR_KEY_PREFIX = "_";
 
     private $DBConnection;
@@ -75,7 +80,7 @@ class DBWorker implements IDBController
         $this->obfuscationDictionary = $this->GetColumnObfuscator();
     }
 
-    private function GetDBStructure()
+    public function GetDBStructure()
     {
         /**
          * Database structure is cached JSON entity of PHP associated array.
@@ -250,7 +255,7 @@ class DBWorker implements IDBController
                     if (!in_array($column_name, $this->studentDBStructure["common_columns"]))
                         $output_html .= "<div". (isset($checkbox_wrap) ? " class='$checkbox_wrap'" : "") .">" .
                             "<label".(isset($label) ? " class='$label'" : "") .">".
-                            "<input type='checkbox' name='".$this->ObfuscateColumnName($table_name, $column_name)."' checked". (isset($checkbox) ? " class='$checkbox'" : "") ."> ".
+                            "<input type='checkbox' name='".$this->ObfuscateColumnName($table_name, $column_name)."' checked". (isset($checkbox) ? " '$checkbox'" : "") ."> ".
                             $column["translation"]."</label>" . "</div>";
                 }
             }
@@ -259,21 +264,66 @@ class DBWorker implements IDBController
         }
         return $output_html;
     }
+    public function ____($templates, $placeholders, $table_name = null)
+    {
+        $database = $this->studentDBStructure["database"];
+        $html_options = "";
+        if ($table_name !== null)
+        {
+            $wrapping = $templates["wrapping"];
+            $table_wrap = $templates["table_wrap"];
+            foreach ($database as $table_name=>$table_structure)
+            {
+                $html_options .= str_replace($placeholders["table"], $this->____($templates, $placeholders, $table_name), $table_wrap);
+            }
+            $html_options = str_replace($placeholders["tables"], $html_options, $wrapping);
+        }
+        else
+        {
+            $checkbox_html = "<input type='checkbox' name='{$placeholders["checkbox_name"]}' checked"
+                .(isset($placeholders["checkbox_class"]) ? "class=".$placeholders["checkbox_class"] : "").">";
+            $option_wrap = $templates["option_wrap"];
+            if (array_key_exists($table_name, $database))
+            {
+                $table = $database[$table_name]["entity"];
+                foreach ($table as $column_name => $column)
+                {
+                    if (!in_array($column_name, $this->studentDBStructure["common_columns"]))
+                    {
+                        $current_checkbox = str_replace($placeholders["checkbox_name"],
+                            $this->ObfuscateColumnName($table_name, $column_name),
+                            $checkbox_html);
+                        if (isset($placeholders["checkbox_class"]))
+                        $current_checkbox = str_replace($placeholders["checkbox_class"],
+                            $placeholders[$placeholders["checkbox_class"]],
+                            $current_checkbox);
+                        $html_options .= str_replace($placeholders["checkbox"],
+                            $current_checkbox,
+                            $option_wrap);
+                    }
+                }
+            }
+            else
+                $html_options .= isset($templates["error"]) ?
+                        str_replace($placeholders["error"], $this->GetErrorMessage(), $templates["error"])
+                        : $this->GetErrorMessage();
+        }
+        return $html_options;
+    }
     public function ProceedGeneralRequest($post)
     {
         $request_columns = $this->GetRequestedColumnsArray($post);
 
         $query = $this->PrepareQuery($request_columns["query"]);
 
-        $single_row_query = $this->GetSingleRowSelectQuery($request_columns["single_row"], $query);
+        $single_row_query = $this->GetGeneralSelectQuery($request_columns["single_row"], $query);
 
         // multi-row query preparations
         $multi_row_queries = [];
         foreach ($request_columns["multi_row"] as $table => $columns)
         {
-            $multi_row_queries[$table] = $this->GetMultiRowSelectQuery($columns, $table, $query);
+            $multi_row_queries[$table] = $this->GetSeparateTableSelectQuery($columns, $table, $query);
         }
-        dump($multi_row_queries);
 
         $db_answer = null;
         try
@@ -299,29 +349,51 @@ class DBWorker implements IDBController
         return $db_answer;
     }
 
-    private function GetSingleRowSelectQuery($request_columns, $query)
+    private function GetGeneralSelectQuery($request_columns, $query, $decorators = [])
     {
         $sql_pieces = ["SELECT ", ", ", ";"];
         $sql = $sql_pieces[0];
         $request_columns = $this->SingleRowRequestColumnsArraysToString($request_columns);
         $columns_string = implode($sql_pieces[1], $request_columns);
-        $sql .= $columns_string . $this->GetSelectMatchAgainstPiece() . $sql_pieces[2];
+        $sql .= $columns_string . $this->GetSelectMatchAgainstPiece();
+        if (!empty($decorators))
+        {
+            if (isset($decorators["general"]))
+                foreach ($decorators["general"] as $decorator)
+                {
+                    $sql = $decorator($sql, $this->studentDBStructure);
+                }
+        }
         return [
-            "query" => $sql,
+            "query" => $sql . $sql_pieces[2],
             "parameters" => [self::MATCH_AGAINST_PARAMETER => $query]
         ];
     }
 
-    private function GetMultiRowSelectQuery($request_columns, $table_name, $query)
+    private function GetSeparateTableSelectQuery($request_columns, $table_name, $query, $decorators = [])
     {
         $columns = $this->MultiRowColumnArrayToString($request_columns, $table_name);
-        $sql_pieces = ["SELECT ", ", ", " FROM ", " WHERE ", " IN (", ");"];
+        $sql_pieces = ["SELECT ", ", ", " FROM ", " WHERE ", " IN (", ")", ";"];
         $sql = $sql_pieces[0] . $columns["string"] . $sql_pieces[2] . $table_name .
             $sql_pieces[3] . $columns["first"] . $sql_pieces[4] . $this->GetMultiRowWhereQuery() . $sql_pieces[5];
-        return [
-            "query" => $sql,
+        if (!empty($decorators))
+        {
+            if (isset($decorators["table"]))
+                foreach ($decorators["table"] as $decorator)
+                {
+                    $sql = $decorator($sql, $this->studentDBStructure, $table_name);
+                }
+            if (isset($decorators["general"]))
+                foreach ($decorators["general"] as $decorator)
+                {
+                    $sql = $decorator($sql, $this->studentDBStructure);
+                }
+        }
+        $ret = [
+            "query" => $sql . $sql_pieces[6],
             "parameters" => [self::MATCH_AGAINST_PARAMETER => $query]
         ];
+        return $ret;
     }
 
     private function GetMultiRowWhereQuery()
@@ -474,7 +546,7 @@ class DBWorker implements IDBController
     }
     private function GetRequestedColumnsArray($post, $table = null)
     {
-        $request_columns = null;
+        $request_columns = [];
         if (!$table)
         {
             $request_columns = ["single_row" => [], "multi_row" => []];
@@ -510,6 +582,7 @@ class DBWorker implements IDBController
             else
                 $table_type = "multi_row";
 
+            $request_columns[$table_type] = $this->studentDBStructure["common_columns"];
             foreach ($post as $key => $value)
             {
                 if ($key == self::QUERY_HTML_NAME)
@@ -522,7 +595,7 @@ class DBWorker implements IDBController
                 $continue = false;
                 switch ($key)
                 {
-
+                    // TODO: some distinct features of particular table
                 }
                 if ($continue)
                     continue;
@@ -605,6 +678,175 @@ class DBWorker implements IDBController
             uksort($array, $callback);
         else
             usort($array, $callback);
+    }
+    public function ProceedTableRequest($post, $table_name)
+    {
+        $request_columns = $this->GetRequestedColumnsArray($post, $table_name);
+        $table_type = "";
+        if (isset($request_columns["single_row"]))
+            $table_type = "single_row";
+        else
+            $table_type = "multi_row";
+        $query = $this->GetSeparateTableSelectQuery($request_columns[$table_type],
+            $table_name,
+            $this->PrepareQuery($request_columns["query"]),
+            $this->CallbacksGenerator(["sort_by_common_asc"])
+        );
+        $db_answer = [];
+        try
+        {
+            $db_answer = $this->DBConnection->QueryWithBinding($query["query"], $query["parameters"]);
+        }
+        catch (Exception $e)
+        {
+            $db_answer = ["error" => $this->GetErrorMessage(), "exception" => $e];
+        }
+        return $db_answer;
+    }
+    private function CallbacksGenerator($general = [], $table = [], $post = [])
+    {
+        $general_callbacks = [
+            "sort_by_common_asc" => function($query, $db_structure)
+            {
+                $sql_pieces = [" ORDER BY ", ", "];
+                $sql = $sql_pieces[0];
+                $is_first = true;
+                foreach ($db_structure["common_columns"] as $common_column)
+                    if ($is_first)
+                    {
+                        $sql .= $common_column;
+                        $is_first = false;
+                    }
+                    else
+                        $sql .= $sql_pieces[1] . $common_column;
+                return $query . $sql;
+            }
+        ];
+        $table_callbacks = [
+
+        ];
+        $returned_callbacks = [];
+        if (!empty($general))
+            $returned_callbacks["general"] = [];
+        foreach ($general as $key)
+        {
+            if (key_exists($key, $general_callbacks))
+                array_push($returned_callbacks["general"], $general_callbacks[$key]);
+        }
+        if (!empty($table))
+            $returned_callbacks["table"] = [];
+        foreach ($table as $key)
+        {
+            if (key_exists($key, $table_callbacks))
+                array_push($returned_callbacks["table"], $table_callbacks[$key]);
+        }
+        return $returned_callbacks;
+    }
+    public function GetHTMLAddNewForm()
+    {
+        $database = $this->studentDBStructure["database"];
+        $html_output = "<div><form action='index.php' method='post'>";
+        reset($database);
+        $first_table_name = key($database);
+        $first_table = $database[$first_table_name];
+        foreach ($this->studentDBStructure["common_columns"] as $column)
+        {
+            $obfuscated_name = $this->ObfuscateColumnName($first_table_name, $column);
+            $html_output .= "<div class=\"form-group\">
+                    <label for='$obfuscated_name'>{$first_table["entity"][$column]["translation"]}</label>
+                    <input type='text' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
+                </div>";
+        }
+        $html_output .= "<div class='form-inline'>";
+        foreach ($database as $table_name => $table_info)
+        {
+            if (!empty($table_info["unique"]))
+            {
+                $html_output .= "<div><fieldset class='form-group'>".
+                    "<legend>{$table_info["translation"]}</legend>";
+                foreach ($table_info["entity"] as $column_name => $column_info)
+                {
+                    if (array_search($column_name, $this->studentDBStructure["common_columns"]) === false)
+                    {
+                        $obfuscated_name = $this->ObfuscateColumnName($table_name, $column_name);
+                        if (!isset($column_info["options"]))
+                        {
+                            $html_output .= "<div class=\"form-group\">
+                                <label for='$obfuscated_name'>{$column_info["translation"]}</label>
+                                <input type='text' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
+                            </div>";
+                        }
+                        else
+                        {
+                            $html_output .= "<div class='form-group'>
+                                <div class='select'><select class='selectpicker'  name='$obfuscated_name' id='$obfuscated_name' title='{$column_info["translation"]}'>";
+                            foreach ($column_info["options"] as $option)
+                                $html_output .= "<option value='$option'>$option</option>";
+                            $html_output .= "</select></div></div>";
+                        }
+                    }
+                }
+                $html_output .= "</fieldset></div>";
+            }
+        }
+        $html_output .= "</div><input type='hidden' name='".self::ACTION_HTML_NAME."' value='" . self::ADD_NEW_ACTION . "'>".
+            "<button type='submit' class='btn btn-info'>Добавить</button>".
+            "</form></div>";
+        return $html_output;
+    }
+
+    public function AddNewStudent($post)
+    {
+        $insert_data = $this->GetChangeDatabaseArray($post);
+
+        $queries = [];
+        foreach ($insert_data["tables"] as $table_name => $columns)
+        {
+            $insert_values = array_merge($insert_data["common_columns"], $columns);
+            dump($insert_values, $insert_data["common_columns"]);
+            array_push($queries, $this->GetInsertQuery($insert_values, $table_name));
+        }
+        try
+        {
+            //dump($queries);
+//            foreach ($queries as $query)
+//                $this->DBConnection->Query($query["query"], $query["parameters"]);
+            return true;
+        }
+        catch (Exception $exception)
+        {
+            return false;
+        }
+    }
+    private function GetChangeDatabaseArray($post)
+    {
+        $changing_tables = [];
+        $common_columns = [];
+        foreach($post as $key => $value)
+        {
+            if ($key == self::ACTION_HTML_NAME)
+                continue;
+            $column_name = $this->DeobfuscateColumnName($key);
+            if (!array_search($column_name["column"], $this->studentDBStructure["common_columns"]))
+            {
+                if (!key_exists($column_name["table"], $changing_tables))
+                    $changing_tables[$column_name["table"]] = [];
+                $changing_tables[$column_name["table"]][$column_name["column"]] = $value;
+            }
+            else
+                $common_columns[$column_name["column"]] = $value;
+        }
+        return ["tables" => $changing_tables, "common_columns" => $common_columns];
+    }
+    private function GetInsertQuery($insert_values, $table_name)
+    {
+        $sql_pieces = ["INSERT INTO ", " (",  ")", " VALUES", ";"];
+        $query = $sql_pieces[0] . $table_name . $sql_pieces[1];
+        $query .= $this->GetColumnString(array_keys($insert_values));
+        $query .= $sql_pieces[2] . $sql_pieces[3] . $sql_pieces[1];
+        $query .= str_repeat_delim("?", count($insert_values));
+        $query .= $sql_pieces[2] . $sql_pieces[4];
+        return ["query" => $query, "parameters" => array_values($insert_values)];
     }
 }
 class DatabaseException extends Exception {}

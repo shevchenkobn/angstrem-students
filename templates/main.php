@@ -5,8 +5,9 @@
  * Date: 29.06.17
  * Time: 0:07
  */
+$db_worker = DBWorker::GetInstance();
 ?>
-<form method="post" action="<?= REAL_DOCUMENT_ROOT?>index.php">
+<form method="post" action="<?= REAL_DOCUMENT_ROOT . "index"?>.php">
     <div class="form-group">
         <label for="query"><h2><?= isset($table) ? $title : "Быстрый поиск:"?></h2></label>
         <div class="form-group">
@@ -34,21 +35,22 @@
     <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= isset($table) ? $table : DBWorker::GENERAL_REQUEST_ACTION?>">
 </form>
 <?php if (isset($db_answer)):
-    dump($db_answer);
+    //dump($db_answer);
     $multi_row_empty = true;
-    foreach ($db_answer["multi_row"] as $table_name => $contents)
-        if (!empty($contents))
-        {
-            $multi_row_empty = false;
-            break;
-        }
-    if (empty($db_answer["single_row"]) && $multi_row_empty): ?>
-        <div class="alert alert-info text-center">
-            <strong>Запрос не вернул результатов</strong>
-        </div>
-    <?php elseif (isset($db_answer["error"])):?>
+    if (isset($db_answer["multi_row"]))
+        foreach ($db_answer["multi_row"] as $table_name => $contents)
+            if (!empty($contents))
+            {
+                $multi_row_empty = false;
+                break;
+            }
+    if (isset($db_answer["error"])): ?>
         <div class="alert alert-danger text-center">
             <strong><?= $db_answer["error"];?></strong>
+        </div>
+    <?php elseif (isset($table) && empty($db_answer) || !isset($table) && empty($db_answer["single_row"]) && $multi_row_empty):?>
+        <div class="alert alert-info text-center">
+            <strong>Запрос не вернул результатов</strong>
         </div>
     <?php else: ?>
 <div id="relevantStudents">
@@ -114,7 +116,7 @@
             </table>
         </div>
     <?php endif; ?>
-    <a href="index.php" id="clearTable" class="btn btn-success">Очистить</a>
+    <a href="index.php<?php if (isset($table)) echo "?page=" . REAL_DOCUMENT_ROOT .  $table . ".php"; ?>" id="clearTable" class="btn btn-success">Очистить</a>
 </div>
 <?php endif;
     endif;?>

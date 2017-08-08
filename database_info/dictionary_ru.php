@@ -7,7 +7,7 @@
                 "conclusion_date" => "Дата заключения",
                 "activation_date" => "Активация аккаунта",
                 "deactivation_date" => "Деактивация аккаунта"],
-            'parents' => ["Родители",
+            'parents' => ["Родители (Опекуны)",
                 "contract_number" => "Номер контракта",
                 "mother_fullname" => "ФИО матери",
                 "mother_email" => "E-mail матери",
@@ -29,7 +29,7 @@
                 "surname" => "Фамилия",
                 "form_number" => "Класс",
                 "form_letter" => "Буква класса"],
-            'students_info' => ["Медданные",
+            'students_info' => ["Особенноси ученика",
                 "contract_number" => "Номер контракта",
                 "medical_features" => "Медицинские особенности",
                 "psychological_features" => "Психологические особенности"]

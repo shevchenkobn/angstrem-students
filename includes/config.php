@@ -21,7 +21,11 @@ interface IDBConnection
 {
     function QueryWithBinding($sql, $parameters);
     function Query($sql);
+    function QueryNoResults($sql);
     function SetPDOFetchMode($pdo_constant);
+    function BeginTransaction();
+    function CommitTransaction();
+    function RollbackTransaction();
 }
 
 interface IDBController

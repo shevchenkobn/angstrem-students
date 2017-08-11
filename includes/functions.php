@@ -78,4 +78,16 @@ function str_repeat_delim($string, $multiplier, $delim = ", ")
     }
     return $result;
 }
+
+function strpos_arr($haystack, $needles = [], $offset = 0)
+{
+    $positions = [];
+    foreach ($needles as $needle)
+    {
+        $result = strpos($haystack, $needle, $offset);
+        if ($result !== false)
+            $positions[$needle] = $result;
+    }
+    return $positions;
+}
 ?>

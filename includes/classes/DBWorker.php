@@ -126,7 +126,6 @@ class DBWorker implements IDBController
 
         $database = [];
         $common_columns = null;
-
         foreach ($table_names as $table_name)
         {
             $query_result = $this->DBConnection->Query("SELECT column_name, column_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?;",
@@ -134,13 +133,18 @@ class DBWorker implements IDBController
             $table = [];
             foreach ($query_result as $column)
             {
-                $table[$column["column_name"]] =
-                    ["translation" => $this->TranslateName($table_name, $column["column_name"])];
-                if (strpos($column["column_type"], "enum(") === 0)
+                $column_type = $column["column_type"];
+                $array = ["translation" => $this->TranslateName($table_name, $column["column_name"])];
+                if (strpos($column_type, "enum(") === 0)
                 {
-                    $table[$column["column_name"]]["options"] = explode(',',
-                        preg_replace("/(enum\(|'|\))/", '', $column["column_type"]));
+                    $array["options"] = explode(',',
+                        preg_replace("/(enum\(|'|\))/", '', $column_type));
                 }
+                else
+                {
+                    $array["type"] = $column_type;
+                }
+                $table[$column["column_name"]] = $array;
             }
             $database[$table_name] = ["translation" => $this->TranslateName($table_name),
                 "entity" => $table];
@@ -186,6 +190,7 @@ class DBWorker implements IDBController
             $this->DBConnection->SetPDOFetchMode(PDO::FETCH_ASSOC);
             $database[$table_name]["unique"] = $unique_common_columns;
         }
+        $this->OrderTableArray($database, true);
         $database_structure = ["database" => $database, "common_columns" => $common_columns];
         $json = json_encode($database_structure, JSON_OBJECT_AS_ARRAY);
         file_put_contents($filename, $json);
@@ -771,9 +776,16 @@ class DBWorker implements IDBController
                         $obfuscated_name = $this->ObfuscateColumnName($table_name, $column_name);
                         if (!isset($column_info["options"]))
                         {
+                            $type = "text";
+                            if (strpos($column_info["type"], "int(") !== false)
+                                $type = "number";
+                            elseif (!empty(strpos_arr($column_info["type"], ["float(", "double(", "decimal("])))
+                                $type = "number' step='0.01";
+                            elseif (!empty(strpos_arr($column_info["type"], ["date", "time"])))
+                                $type = "date";
                             $html_output .= "<div class=\"form-group\">
                                 <label for='$obfuscated_name'>{$column_info["translation"]}</label>
-                                <input type='text' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
+                                <input type='$type' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
                             </div>";
                         }
                         else
@@ -803,19 +815,31 @@ class DBWorker implements IDBController
         foreach ($insert_data["tables"] as $table_name => $columns)
         {
             $insert_values = array_merge($insert_data["common_columns"], $columns);
-            dump($insert_values, $insert_data["common_columns"]);
             array_push($queries, $this->GetInsertQuery($insert_values, $table_name));
         }
         try
         {
-            //dump($queries);
-//            foreach ($queries as $query)
-//                $this->DBConnection->Query($query["query"], $query["parameters"]);
-            return true;
+            $this->DBConnection->BeginTransaction();
+            $fail = false;
+            foreach ($queries as $query)
+            {
+                $fail = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
+                if ($fail)
+                    break;
+            }
+            $result = true;
+            if ($fail)
+            {
+                $this->DBConnection->RollbackTransaction();
+                $result = false;
+            }
+            else
+                $this->DBConnection->CommitTransaction();
+            return $result;
         }
         catch (Exception $exception)
         {
-            return false;
+            return $exception;
         }
     }
     private function GetChangeDatabaseArray($post)
@@ -827,7 +851,7 @@ class DBWorker implements IDBController
             if ($key == self::ACTION_HTML_NAME)
                 continue;
             $column_name = $this->DeobfuscateColumnName($key);
-            if (!array_search($column_name["column"], $this->studentDBStructure["common_columns"]))
+            if (!is_int(array_search($column_name["column"], $this->studentDBStructure["common_columns"])))
             {
                 if (!key_exists($column_name["table"], $changing_tables))
                     $changing_tables[$column_name["table"]] = [];

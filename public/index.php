@@ -46,7 +46,7 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
                     "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
                 break;
             case DBWorker::ADD_NEW_ACTION:
-                $db_worker->AddNewStudent($_POST);
+                //dump($db_worker->AddNewStudent($_POST));
                 render("add_new.php", ["title" => "Добавить нового ученика", "form" => $db_worker->GetHTMLAddNewForm()]);
                 break;
             default:

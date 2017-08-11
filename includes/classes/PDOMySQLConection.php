@@ -65,28 +65,9 @@ class PDOMySQLConection implements IDBConnection
     }
     public function Query($sql)
     {
-        $argv = func_get_args();
-        $parameters = null;
-        if (count($argv) >= 1)
-        {
-            $sql = $argv[0];
-            if (count($argv) == 2 && is_array($argv[1]))
-            {
-                $parameters = $argv[1];
-            }
-            elseif (count($argv) !== 1)
-                $parameters = array_slice(func_get_args(), 1);
-        }
-        else
-            throw new InvalidArgumentException("Insufficient arguments");
-        $statement = $this->handle->prepare($sql);
-        if ($statement === false)
-        {
-            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
-            exit;
-        }
+        $parameters = $this->ValidateParameters(func_get_args());
+        $statement = $this->PrepareQuery($sql);
         $results = $statement->execute($parameters);
-
         if ($results !== false)
         {
             return $statement->fetchAll($this->PDOFetchMode);
@@ -96,6 +77,39 @@ class PDOMySQLConection implements IDBConnection
             return false;
         }
     }
+    public function QueryNoResults($sql)
+    {
+        $parameters = $this->ValidateParameters(func_get_args());
+        $statement = $this->PrepareQuery($sql);
+        return $statement->execute($parameters);
+    }
+    private function PrepareQuery($sql)
+    {
+        $statement = $this->handle->prepare($sql);
+        if ($statement === false)
+        {
+            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
+            exit;
+        }
+        return $statement;
+    }
+    private function ValidateParameters($argv)
+    {
+        $parameters = null;
+        if (count($argv) >= 1)
+        {
+            if (count($argv) == 2 && is_array($argv[1]))
+            {
+                $parameters = $argv[1];
+            }
+            elseif (count($argv) !== 1)
+                $parameters = array_slice($argv, 1);
+        }
+        else
+            throw new InvalidArgumentException("Insufficient arguments");
+        return $parameters;
+    }
+
     public function QueryWithBinding($sql, $parameters)
     {
         $sql_pieces = ["SET ", " = ", ", ", ";"];
@@ -114,24 +128,14 @@ class PDOMySQLConection implements IDBConnection
                 $set_query .= $sql_pieces[3];
             $i++;
         }
-        $statement = $this->handle->prepare($set_query);
-        if ($statement === false)
-        {
-            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
-            exit;
-        }
+        $statement = $this->PrepareQuery($set_query);
         foreach ($parameters as $name => &$value)
             $statement->bindParam($name, $value);
 
         $statement->execute();
 
         $sql = str_replace(":", "@", $sql);
-        $statement = $this->handle->prepare($sql);
-        if ($statement === false)
-        {
-            trigger_error($this->handle->errorInfo()[2], E_USER_ERROR);
-            exit;
-        }
+        $statement = $this->PrepareQuery($sql);
         $results = $statement->execute();
         if ($results !== false)
         {
@@ -146,5 +150,17 @@ class PDOMySQLConection implements IDBConnection
     {
         if (is_int($pdo_constant) && $pdo_constant >= 0)
             $this->PDOFetchMode = $pdo_constant;
+    }
+    public function BeginTransaction()
+    {
+        return $this->handle->beginTransaction();
+    }
+    public function CommitTransaction()
+    {
+        return $this->handle->commit();
+    }
+    public function RollbackTransaction()
+    {
+        return $this->handle->rollBack();
     }
 }

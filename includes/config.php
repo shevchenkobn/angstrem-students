@@ -38,6 +38,8 @@ interface IDBController
     function ProceedTableRequest($post, $table_name);
     function ObfuscateColumnName($table, $column);
     function DeobfuscateColumnName($key);
+    function GetLoginFormArray();
+    function DumpAllRows($table = "");
 }
 
 //dump(exec("id"));

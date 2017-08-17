@@ -41,14 +41,48 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
         switch ($_POST[DBWorker::ACTION_HTML_NAME])
         {
             case DBWorker::GENERAL_REQUEST_ACTION:
-                $db_answer = $db_worker->ProceedGeneralRequest($_POST);
-                render("main.php", ["db_answer" => $db_answer,
-                    "display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+            	if (isset($_POST[DBWorker::TABLE_HTML_NAME]))
+				{
+					$db_structure = $db_worker->GetDatabaseStructure();
+					$table_name = $db_structure["database"][$table]["translation"];
+					render("main.php", ["title" => "Результаты: $table_name",
+						"db_answer" => $db_worker->ProceedTableRequest($_POST, $table),
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, "payments"),
+						"table" => $table
+					]);
+				}
+				else
+				{
+					$db_answer = $db_worker->ProceedGeneralRequest($_POST);
+					render("main.php", ["db_answer" => $db_answer,
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+				}
                 break;
             case DBWorker::ADD_NEW_ACTION:
-                //dump($db_worker->AddNewStudent($_POST));
-                render("add_new.php", ["title" => "Добавить нового ученика", "form" => $db_worker->GetHTMLAddNewForm()]);
+                $result = $db_worker->AddNewStudent($_POST);
+                render("add_new.php", ["title" => "Добавить нового ученика",
+					"form" => $db_worker->GetHTMLAddNewForm(),
+					"result" => $result
+				]);
                 break;
+			case DBWorker::DUMP_ALL_ACTION:
+				if (isset($_POST[DBWorker::TABLE_HTML_NAME]))
+				{
+					$table = $_POST[DBWorker::TABLE_HTML_NAME];
+					$db_answer = $db_worker->DumpAllRows($table);
+					$table_name = $db_worker->GetDatabaseStructure()["database"][$table]["translation"];
+					render("main.php", ["title" => "Результаты: $table_name",
+						"db_answer" => $db_answer,
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns),
+						"table" => $table]);
+				}
+				else
+				{
+					$db_answer = $db_worker->DumpAllRows();
+					render("main.php", ["db_answer" => $db_answer,
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+				}
+				break;
             default:
                 $table = $_POST[DBWorker::ACTION_HTML_NAME];
                 if (in_array($table, $tables))

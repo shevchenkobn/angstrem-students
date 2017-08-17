@@ -5,5 +5,5 @@
  * Date: 29.07.17
  * Time: 21:18
  */
-return ["students", "parents", "contracts_info"];
+return ["students", "contracts_info", "parents"];
 ?>

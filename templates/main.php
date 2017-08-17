@@ -5,11 +5,38 @@
  * Date: 29.06.17
  * Time: 0:07
  */
-$db_worker = DBWorker::GetInstance();
 ?>
 <form method="post" action="<?= REAL_DOCUMENT_ROOT . "index"?>.php">
     <div class="form-group">
-        <label for="query"><h2><?= isset($table) ? $title : "Быстрый поиск:"?></h2></label>
+        <div class="row">
+            <div class="col-sm-7">
+                <label for="query"><h2><?= isset($table) ? $title : "Быстрый поиск:"?></h2></label>
+            </div>
+            <div class="col-sm-5" style="height: 100%; vertical-align: middle;">
+                <div class="row">
+                    <?php
+                        $non_unique = isset($table) && empty(DBWorker::GetInstance()->GetDBStructure()["database"][$table]["unique"]);
+                    ?>
+                    <div class="col-sm-<?= $non_unique ? 6 : 12?>">
+                        <form method="post">
+                            <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::DUMP_ALL_ACTION?>">
+                            <?php if (isset($table)): ?>
+                                <input type="hidden" name="<?= DBWorker::TABLE_HTML_NAME?>" value="<?= $table?>">
+                            <?php endif;?>
+                            <button type="submit" class="btn btn-block btn-info" style="margin: 25px 0">Показать всю таблицу</button>
+                        </form>
+                    </div>
+                    <?php if ($non_unique): ?>
+                    <div class="col-sm-6">
+                        <form method="post">
+                            <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::DUMP_ALL_ACTION?>">
+                            <button type="submit" class="btn btn-block btn-success" style="margin: 25px 0">Добавить запись</button>
+                        </form>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
         <div class="form-group">
             <div class="input-group">
                 <div class="input-group-btn">
@@ -32,10 +59,9 @@ $db_worker = DBWorker::GetInstance();
             <?= $display_checkboxes?>
         </div>
     </div>
-    <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= isset($table) ? $table : DBWorker::GENERAL_REQUEST_ACTION?>">
+    <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::GENERAL_REQUEST_ACTION?>">
 </form>
-<?php if (isset($db_answer)):
-    dump($db_answer);
+<?php if (isset($db_answer)): dump($db_answer);
     $multi_row_empty = true;
     if (isset($db_answer["multi_row"]))
         foreach ($db_answer["multi_row"] as $table_name => $contents)

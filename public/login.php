@@ -10,10 +10,14 @@ if (!empty($_SESSION))
     redirect("index.php");
 else
 {
-    if ($_SERVER["REQUEST_METHOD"] === "POST")
-    {
+    $render_arr_param = $db_worker->GetLoginFormArray();
+    $render_arr_param["title"] = "Авторизация";
+    if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if ($_POST["action"] != "login")
-            render("login.php", ["title" => "Авторизация", "errors" => ["Неизвестная ошибка. Попробуйте снова."]]);
+        {
+            $render_arr_param["errors"] = ["Неизвестная ошибка. Попробуйте снова."];
+            render("login.php", $render_arr_param);
+        }
         foreach ($_POST as $key => $value)
         {
             if (strpos($key, DBWorker::OBFUSCATOR_KEY_PREFIX) === 0)
@@ -36,13 +40,18 @@ else
         elseif (!password_verify($_POST["password"], $user[0]["password"]))
             array_push($errors, "Неправильно введен пароль.");
         if (count($errors) > 0)
-            render("login.php", ["title" => "Авторизация", "errors" => $errors]);
-        else
         {
+            $render_arr_param["errors"] = $errors;
+            render("login.php", $render_arr_param);
+        }
+        else {
             $_SESSION["user"] = $user[0];
             redirect("index.php");
         }
     }
+    else
+    {
+        render("login.php", $render_arr_param);
+    }
 }
-    render("login.php", ["title" => "Авторизация", "db_worker" => $db_worker]);
 ?>

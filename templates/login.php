@@ -15,11 +15,11 @@
             <div class="panel-body"><form method="POST" action="<?= REAL_DOCUMENT_ROOT?>login.php">
                 <div class="form-group">
                     <label for="login">Логин</label>
-                    <input type="email" class="form-control" id="login" name="<?= $db_worker->ObfuscateColumnName("staff_users", "email")?>">
+                    <input type="email" class="form-control" id="login" name="<?= $email?>">
                 </div>
                 <div class="form-group">
                     <label for="password">Пароль</label>
-                    <input type="password" class="form-control" id="password" name="<?= $db_worker->ObfuscateColumnName("staff_users", "password")?>">
+                    <input type="password" class="form-control" id="password" name="<?= $password?>">
                 </div>
                 <input type="hidden" name="action" value="login">
                 <button type="submit" class="btn btn-block btn-primary">Авторизоваться</button>

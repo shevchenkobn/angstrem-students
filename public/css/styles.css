@@ -22,10 +22,24 @@ label {
     padding: 10px 0;
 }
 
+/** For 100% height of col inside row bootstrap */
+/*.row*/
+/*{*/
+    /*height: 100%;*/
+    /*display: table-row;*/
+/*}*/
+@media (min-width: 768px) {
+    .row .no-float-sm {
+        display: table-cell;
+        float: none;
+    }
+}
+
 /** wrapping for bootstrapped select */
 .select {
     padding: 10px 1.5rem;
 }
+/**/
 
 .form-inline label {
     padding-left: 1.5rem;
@@ -43,7 +57,7 @@ input[type="checkbox"] {
 }
 
 form {
-    padding-bottom: 50px;
+    margin-bottom: 2rem;
 }
 
 /** Recoloring of navbar */

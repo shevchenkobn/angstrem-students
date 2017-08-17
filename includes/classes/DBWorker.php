@@ -19,8 +19,9 @@ class DBWorker implements IDBController
         self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"] = realpath(__DIR__."/../../")."/database_info/dictionary_ru.php";
 
         self::$STAFF_COLUMNS_ARRAY_FILE = realpath(__DIR__."/../../")."/database_info/staff_columns.php";
-        self::$COLUMN_OBFUSCATOR_FILE = realpath(__DIR__."/../../")."/database_info/column_obfuscator.php";
+        self::$COLUMN_OBFUSCATOR_FILE = realpath(__DIR__."/../../")."/database_info/column_obfuscator.json";
         self::$TABLE_ORDER_FILE = realpath(__DIR__."/../../")."/database_info/table_order.php";
+        self::$ADD_NEW_STUDENT_COLUMNS = realpath(__DIR__."/../../")."/database_info/add_new_tables.php";
     }
     public static function GetInstance($language = "RU")
     {
@@ -38,14 +39,22 @@ class DBWorker implements IDBController
     private static $STAFF_COLUMNS_ARRAY_FILE = "";
     private static $COLUMN_OBFUSCATOR_FILE = "";
     private static $TABLE_ORDER_FILE = "";
+    private static $ADD_NEW_STUDENT_COLUMNS = "";
+    
     const STUDENTS_MONTHLY_FEE = 650;
+    
     const DISPLAY_OPTIONS_NAME_DELIM = "/";
     const GENERAL_QUERY_KEYWORDS_DELIM = "/[\s,]+/";
+    
     const QUERY_HTML_NAME = "q";
     const ACTION_HTML_NAME = "a";
+    const TABLE_HTML_NAME = "t";
+    
     const MATCH_AGAINST_PARAMETER = ":query";
     const GENERAL_REQUEST_ACTION = "full";
+    const DUMP_ALL_ACTION = "all";
     const ADD_NEW_ACTION = "n";
+    
     const OBFUSCATOR_KEY_PREFIX = "_";
 
     private $DBConnection;
@@ -54,8 +63,9 @@ class DBWorker implements IDBController
     private $dictionary;
     private $obfuscationDictionary;
     private $tableOrderArray;
-    private $selectMatchAgainstPiece;
+    private $joinAllTables;
     private $multiRowWhereQuery;
+    private $addNewStudentTables;
 
     private $whereMatchAgainst = null;
 
@@ -73,11 +83,19 @@ class DBWorker implements IDBController
 
         $this->SetDictionary();
 
-        $this->tableOrderArray = require self::$TABLE_ORDER_FILE;
+        if (is_readable(self::$TABLE_ORDER_FILE))
+        	$this->tableOrderArray = require self::$TABLE_ORDER_FILE;
+        else
+        	$this->tableOrderArray = [];
 
         $this->studentDBStructure = $this->GetDBStructure();
 
         $this->obfuscationDictionary = $this->GetColumnObfuscator();
+	
+		if (is_readable(self::$ADD_NEW_STUDENT_COLUMNS))
+			$this->addNewStudentTables = require self::$ADD_NEW_STUDENT_COLUMNS;
+		else
+			$this->tableOrderArray = [];
     }
 
     public function GetDBStructure()
@@ -360,7 +378,7 @@ class DBWorker implements IDBController
         $sql = $sql_pieces[0];
         $request_columns = $this->SingleRowRequestColumnsArraysToString($request_columns);
         $columns_string = implode($sql_pieces[1], $request_columns);
-        $sql .= $columns_string . $this->GetSelectMatchAgainstPiece();
+        $sql .= $columns_string . $this->GetSelectMatchAgainstPiece(self::MATCH_AGAINST_PARAMETER);
         if (!empty($decorators))
         {
             if (isset($decorators["general"]))
@@ -409,20 +427,18 @@ class DBWorker implements IDBController
         return $this->multiRowWhereQuery;
     }
 
-    private function GetSelectMatchAgainstPiece()
+    private function GetSelectMatchAgainstPiece($query = "")
     {
-        if (!$this->selectMatchAgainstPiece)
-            $this->SetSelectMatchAgainstPiece();
-        return $this->selectMatchAgainstPiece;
+        return $this->GetJoinAllTables() . $this->GetWhereMatchAgainstPiece($query);
     }
 
-    private function SetSelectMatchAgainstPiece()
+    private function SetJoinAllTablesPiece()
     {
         $sql_pieces = [" FROM ", " JOIN ", " USING(", ")"];
         $common_columns = $this->GetColumnString($this->studentDBStructure["common_columns"]);
 
         $is_first = true;
-        $this->selectMatchAgainstPiece = "";
+        $this->joinAllTables = "";
         foreach ($this->studentDBStructure["database"] as $table => $table_info)
         {
             if (!empty($table_info["unique"]))
@@ -430,18 +446,15 @@ class DBWorker implements IDBController
                 if ($is_first) {
                     $is_first = false;
                     $from_table = $sql_pieces[0] . $table;
-                    $this->selectMatchAgainstPiece .= $from_table;
+                    $this->joinAllTables .= $from_table;
                     continue;
                 }
 
                 $appendant = $sql_pieces[1] . $this->EscapeTableIdentifier($table) .
                     $sql_pieces[2] . $common_columns . $sql_pieces[3];
-                $this->selectMatchAgainstPiece .= $appendant;
+                $this->joinAllTables .= $appendant;
             }
         }
-
-        $match_against_piece = $this->GetWhereMatchAgainstPiece(self::MATCH_AGAINST_PARAMETER);
-        $this->selectMatchAgainstPiece .= $match_against_piece;
     }
 
     private function SingleRowRequestColumnsArraysToString($request_columns, $delim = ", ")
@@ -611,6 +624,7 @@ class DBWorker implements IDBController
     }
     private function CreateColumnObfuscator()
     {
+        echo "<h1>RELOADED</h1>";
         $key = 'a';
         $obfuscation_array = [];
         $sql = "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;";
@@ -765,7 +779,7 @@ class DBWorker implements IDBController
         $html_output .= "<div class='form-inline'>";
         foreach ($database as $table_name => $table_info)
         {
-            if (!empty($table_info["unique"]))
+            if (key_exists($table_name, $this->addNewStudentTables))
             {
                 $html_output .= "<div><fieldset class='form-group'>".
                     "<legend>{$table_info["translation"]}</legend>";
@@ -781,8 +795,14 @@ class DBWorker implements IDBController
                                 $type = "number";
                             elseif (!empty(strpos_arr($column_info["type"], ["float(", "double(", "decimal("])))
                                 $type = "number' step='0.01";
-                            elseif (!empty(strpos_arr($column_info["type"], ["date", "time"])))
-                                $type = "date";
+                            elseif (!empty($result = strpos_arr($column_info["type"], ["date", "time"])))
+							{
+								$type = "";
+								if (isset($result["date"]))
+									$type .= "date";
+								if (isset($result["time"]))
+									$type .= "time";
+							}
                             $html_output .= "<div class=\"form-group\">
                                 <label for='$obfuscated_name'>{$column_info["translation"]}</label>
                                 <input type='$type' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
@@ -820,15 +840,17 @@ class DBWorker implements IDBController
         try
         {
             $this->DBConnection->BeginTransaction();
-            $fail = false;
+            $success = false;
             foreach ($queries as $query)
             {
-                $fail = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
-                if ($fail)
-                    break;
+                $success = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
+				if (!$success)
+				{
+					break;
+				}
             }
             $result = true;
-            if ($fail)
+            if (!$success)
             {
                 $this->DBConnection->RollbackTransaction();
                 $result = false;
@@ -842,7 +864,7 @@ class DBWorker implements IDBController
             return $exception;
         }
     }
-    private function GetChangeDatabaseArray($post)
+    private function GetChangeDatabaseArray($post, $insert_new = true)
     {
         $changing_tables = [];
         $common_columns = [];
@@ -860,6 +882,15 @@ class DBWorker implements IDBController
             else
                 $common_columns[$column_name["column"]] = $value;
         }
+        if ($insert_new)
+			foreach ($this->studentDBStructure["database"] as $table_name => $table_info)
+			{
+				if (!key_exists($table_name, $changing_tables) && $table_info["unique"])
+				{
+					$columns = array_diff($table_info["entity"], $this->studentDBStructure["common_columns"]);
+					$changing_tables[$table_name] = array_fill_keys($columns, "");
+				}
+			}
         return ["tables" => $changing_tables, "common_columns" => $common_columns];
     }
     private function GetInsertQuery($insert_values, $table_name)
@@ -872,5 +903,42 @@ class DBWorker implements IDBController
         $query .= $sql_pieces[2] . $sql_pieces[4];
         return ["query" => $query, "parameters" => array_values($insert_values)];
     }
+    public function GetLoginFormArray()
+    {
+        return [
+            "email" => $this->ObfuscateColumnName("staff_users", "email"),
+            "password" => $this->ObfuscateColumnName("staff_users", "password")
+        ];
+    }
+    private function GetJoinAllTables()
+	{
+		if (empty($this->joinAllTables))
+			$this->SetJoinAllTablesPiece();
+		return $this->joinAllTables;
+	}
+	public function DumpAllRows($table = "")
+	{
+		if (empty($table))
+		{
+			$sql = "";
+			$sql .= $this->GetJoinAllTables();
+		}
+		else
+		{
+			$sql = "SELECT * FROM ";
+			$sql .= $this->EscapeTableIdentifier($table);
+		}
+		dump($sql);
+		$db_answer = null;
+		try
+		{
+			$db_answer = $this->DBConnection->Query($sql);
+		}
+		catch (Exception $exception)
+		{
+			$db_answer = ["error" => $this->GetErrorMessage(), $exception => $exception];
+		}
+		return $db_answer;
+	}
 }
 class DatabaseException extends Exception {}

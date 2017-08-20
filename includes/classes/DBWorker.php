@@ -51,11 +51,17 @@ class DBWorker implements IDBController
     const TABLE_HTML_NAME = "t";
     
     const MATCH_AGAINST_PARAMETER = ":query";
+    
     const GENERAL_REQUEST_ACTION = "full";
     const DUMP_ALL_ACTION = "all";
     const ADD_NEW_ACTION = "n";
+    const UPDATE_ROW = "u";
     
     const OBFUSCATOR_KEY_PREFIX = "_";
+    
+    const REQUEST_TYPE_GENERAL = "g";
+    const REQUEST_TYPE_TABLE = "t";
+    
 
     private $DBConnection;
     private $studentDBStructure;
@@ -66,6 +72,8 @@ class DBWorker implements IDBController
     private $joinAllTables;
     private $multiRowWhereQuery;
     private $addNewStudentTables;
+    private $requestColumns;
+    private $lastRequest;
 
     private $whereMatchAgainst = null;
 
@@ -333,9 +341,9 @@ class DBWorker implements IDBController
         }
         return $html_options;
     }
-    public function ProceedGeneralRequest($post)
+    public function ProceedGeneralRequest($form_data)
     {
-        $request_columns = $this->GetRequestedColumnsArray($post);
+        $request_columns = $this->GetRequestedColumnsArray($form_data);
 
         $query = $this->PrepareQuery($request_columns["query"]);
 
@@ -378,7 +386,11 @@ class DBWorker implements IDBController
         $sql = $sql_pieces[0];
         $request_columns = $this->SingleRowRequestColumnsArraysToString($request_columns);
         $columns_string = implode($sql_pieces[1], $request_columns);
-        $sql .= $columns_string . $this->GetSelectMatchAgainstPiece(self::MATCH_AGAINST_PARAMETER);
+        $sql .= $columns_string;
+        if ($query !== null)
+        	$sql .= $this->GetSelectMatchAgainstPiece(self::MATCH_AGAINST_PARAMETER);
+        else
+        	$sql .= $this->GetJoinAllTables();
         if (!empty($decorators))
         {
             if (isset($decorators["general"]))
@@ -387,10 +399,13 @@ class DBWorker implements IDBController
                     $sql = $decorator($sql, $this->studentDBStructure);
                 }
         }
-        return [
-            "query" => $sql . $sql_pieces[2],
-            "parameters" => [self::MATCH_AGAINST_PARAMETER => $query]
-        ];
+        if ($query !== null)
+			return [
+				"query" => $sql . $sql_pieces[2],
+				"parameters" => [self::MATCH_AGAINST_PARAMETER => $query]
+			];
+        else
+        	return $sql . $sql_pieces[2];
     }
 
     private function GetSeparateTableSelectQuery($request_columns, $table_name, $query, $decorators = [])
@@ -562,13 +577,14 @@ class DBWorker implements IDBController
             return str_replace("?", $query_name, $this->whereMatchAgainst);
         return $this->whereMatchAgainst;
     }
-    private function GetRequestedColumnsArray($post, $table = null)
+    private function GetRequestedColumnsArray($form_data, $table = null)
     {
         $request_columns = [];
         if (!$table)
         {
+        	$this->lastRequest = self::REQUEST_TYPE_GENERAL;
             $request_columns = ["single_row" => [], "multi_row" => []];
-            foreach ($post as $key => $value) {
+            foreach ($form_data as $key => $value) {
                 if ($key == self::QUERY_HTML_NAME) {
                     $request_columns["query"] = $value;
                     continue;
@@ -595,13 +611,11 @@ class DBWorker implements IDBController
         }
         else
         {
-            if (!empty($this->studentDBStructure["database"][$table]["unique"]))
-                $table_type = "single_row";
-            else
-                $table_type = "multi_row";
+        	$this->lastRequest = self::REQUEST_TYPE_TABLE;
+            $table_type = $this->GetTableTypeByRowNumber($table);
 
             $request_columns[$table_type] = $this->studentDBStructure["common_columns"];
-            foreach ($post as $key => $value)
+            foreach ($form_data as $key => $value)
             {
                 if ($key == self::QUERY_HTML_NAME)
                 {
@@ -610,6 +624,8 @@ class DBWorker implements IDBController
                 }
                 if ($key == self::ACTION_HTML_NAME)
                     continue;
+                if ($key == self::TABLE_HTML_NAME)
+                	continue;
                 $continue = false;
                 switch ($key)
                 {
@@ -620,11 +636,11 @@ class DBWorker implements IDBController
                 array_push($request_columns[$table_type], $this->DeobfuscateColumnName($key)["column"]);
             }
         }
+        $this->requestColumns = $request_columns;
         return $request_columns;
     }
     private function CreateColumnObfuscator()
     {
-        echo "<h1>RELOADED</h1>";
         $key = 'a';
         $obfuscation_array = [];
         $sql = "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;";
@@ -698,9 +714,9 @@ class DBWorker implements IDBController
         else
             usort($array, $callback);
     }
-    public function ProceedTableRequest($post, $table_name)
+    public function ProceedTableRequest($form_data, $table_name)
     {
-        $request_columns = $this->GetRequestedColumnsArray($post, $table_name);
+        $request_columns = $this->GetRequestedColumnsArray($form_data, $table_name);
         $table_type = "";
         if (isset($request_columns["single_row"]))
             $table_type = "single_row";
@@ -722,7 +738,7 @@ class DBWorker implements IDBController
         }
         return $db_answer;
     }
-    private function CallbacksGenerator($general = [], $table = [], $post = [])
+    private function CallbacksGenerator($general = [], $table = [], $form_data = [])
     {
         $general_callbacks = [
             "sort_by_common_asc" => function($query, $db_structure)
@@ -827,9 +843,9 @@ class DBWorker implements IDBController
         return $html_output;
     }
 
-    public function AddNewStudent($post)
+    public function AddNewStudent($form_data)
     {
-        $insert_data = $this->GetChangeDatabaseArray($post);
+        $insert_data = $this->GetChangeDatabaseArray($form_data);
 
         $queries = [];
         foreach ($insert_data["tables"] as $table_name => $columns)
@@ -864,11 +880,11 @@ class DBWorker implements IDBController
             return $exception;
         }
     }
-    private function GetChangeDatabaseArray($post, $insert_new = true)
+    private function GetChangeDatabaseArray($form_data, $insert_new = true)
     {
         $changing_tables = [];
         $common_columns = [];
-        foreach($post as $key => $value)
+        foreach($form_data as $key => $value)
         {
             if ($key == self::ACTION_HTML_NAME)
                 continue;
@@ -916,29 +932,105 @@ class DBWorker implements IDBController
 			$this->SetJoinAllTablesPiece();
 		return $this->joinAllTables;
 	}
-	public function DumpAllRows($table = "")
+	public function DumpAllRows($form_data, $table = "")
 	{
+		$sql = "";
+		$single_query = "";
+		$multi_queries = [];
+		$requested_columns = $this->GetRequestedColumnsArray($form_data, $table);
 		if (empty($table))
 		{
-			$sql = "";
-			$sql .= $this->GetJoinAllTables();
+			$single_query = $this->GetGeneralSelectQuery($requested_columns["single_row"], null);
+			foreach ($requested_columns["multi_row"] as $table_name => $columns)
+				$multi_queries[$table_name] = $this->GetSimpleSelectAllQuery($columns, $table_name);
 		}
 		else
 		{
-			$sql = "SELECT * FROM ";
-			$sql .= $this->EscapeTableIdentifier($table);
+			$table_type = $this->GetTableTypeByRowNumber($table);
+			$sql = $this->GetSimpleSelectAllQuery($requested_columns[$table_type], $table);
 		}
-		dump($sql);
+//		dump($sql);
 		$db_answer = null;
 		try
 		{
-			$db_answer = $this->DBConnection->Query($sql);
+			if (empty($table))
+			{
+				$db_answer = [];
+				$db_answer["single_row"] = $this->DBConnection->Query($single_query);
+				$db_answer["multi_row"] = [];
+				$this->DBConnection->SetPDOFetchMode(PDO::FETCH_GROUP | PDO::FETCH_ASSOC);
+				foreach ($multi_queries as $table_name=> $query)
+				{
+					$translation = $this->studentDBStructure["database"][$table_name]["translation"];
+					$db_answer["multi_row"][$translation] = $this->DBConnection->Query($query);
+				}
+				$this->DBConnection->SetPDOFetchMode(PDO::FETCH_ASSOC);
+				
+			}
+			else
+				$db_answer = $this->DBConnection->Query($sql);
 		}
 		catch (Exception $exception)
 		{
-			$db_answer = ["error" => $this->GetErrorMessage(), $exception => $exception];
+			$db_answer = ["error" => $this->GetErrorMessage(), "exception" => $exception];
 		}
 		return $db_answer;
+	}
+	private function GetSimpleSelectAllQuery($columns, $table)
+	{
+		$sql = "SELECT " . $this->GetTranslatedColumnString($columns, $table);
+		$sql .= " FROM " . $this->EscapeTableIdentifier($table) . ";";
+		return $sql;
+	}
+	public function GetUpdateInputNames($table = null)
+	{
+		$input_names = [];
+		if (empty($this->requestColumns))
+			$this->requestColumns = ['single_row' => [], 'multi_row' => []];
+		if (empty($table))
+		{
+			foreach ($this->studentDBStructure["database"] as $table_name=>$table_info)
+			{
+				if (!empty($table_info["unique"]))
+				{
+					$input_names = array_merge($input_names, $this->GetUpdateInputNames($table_name));
+				}
+			}
+		}
+		else
+		{
+			$table_type = $this->GetTableTypeByRowNumber($table);
+			foreach ($this->studentDBStructure["database"][$table]["entity"] as $column_name => $column_info)
+			{
+				$obfuscation = $this->ObfuscateColumnName($table, $column_name);
+				if ($this->lastRequest == self::REQUEST_TYPE_GENERAL && array_search($column_name, $this->requestColumns[$table_type][$table]) !== false ||
+					$this->lastRequest == self::REQUEST_TYPE_TABLE && array_search($column_name, $this->requestColumns[$table_type]) !== false ||
+					array_search($column_name, $this->studentDBStructure["common_columns"]) !== false)
+				{
+					$input_names[$column_info["translation"]] = $obfuscation;
+				}
+				else
+				{
+					array_push($input_names, $obfuscation);
+				}
+			}
+		}
+		return $input_names;
+	}
+	private function GetTableTypeByRowNumber($table)
+	{
+		if (!empty($this->studentDBStructure["database"][$table]["unique"]))
+			return "single_row";
+		else
+			return "multi_row";
+	}
+	public function UpdateRow($form_data)
+	{
+		// TODO: Implement UpdateRow() method.
+	}
+	private function GetUpdateRowValuesArray($form_data)
+	{
+	
 	}
 }
 class DatabaseException extends Exception {}

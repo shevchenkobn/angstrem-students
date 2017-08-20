@@ -37,25 +37,30 @@ if ($_SERVER["REQUEST_METHOD"] === "GET")
 }
 elseif ($_SERVER["REQUEST_METHOD"] === "POST")
 {
+//	dump($_POST);
     if (isset($_POST[DBWorker::ACTION_HTML_NAME]))
         switch ($_POST[DBWorker::ACTION_HTML_NAME])
         {
             case DBWorker::GENERAL_REQUEST_ACTION:
+            	$render_array = [];
             	if (isset($_POST[DBWorker::TABLE_HTML_NAME]))
 				{
+					$table = $_POST[DBWorker::TABLE_HTML_NAME];
 					$db_structure = $db_worker->GetDatabaseStructure();
 					$table_name = $db_structure["database"][$table]["translation"];
 					render("main.php", ["title" => "Результаты: $table_name",
 						"db_answer" => $db_worker->ProceedTableRequest($_POST, $table),
-						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, "payments"),
-						"table" => $table
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, $table),
+						"table" => $table,
+						"update_form_names" => $db_worker->GetUpdateInputNames($table)
 					]);
 				}
 				else
 				{
 					$db_answer = $db_worker->ProceedGeneralRequest($_POST);
 					render("main.php", ["db_answer" => $db_answer,
-						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns),
+						"update_form_names" => $db_worker->GetUpdateInputNames()]);
 				}
                 break;
             case DBWorker::ADD_NEW_ACTION:
@@ -69,18 +74,22 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
 				if (isset($_POST[DBWorker::TABLE_HTML_NAME]))
 				{
 					$table = $_POST[DBWorker::TABLE_HTML_NAME];
-					$db_answer = $db_worker->DumpAllRows($table);
+					$db_answer = $db_worker->DumpAllRows($_POST, $table);
 					$table_name = $db_worker->GetDatabaseStructure()["database"][$table]["translation"];
 					render("main.php", ["title" => "Результаты: $table_name",
 						"db_answer" => $db_answer,
-						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns),
-						"table" => $table]);
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns, $table),
+						"table" => $table,
+						"update_form_names" => $db_worker->GetUpdateInputNames($table)
+					]);
 				}
 				else
 				{
-					$db_answer = $db_worker->DumpAllRows();
+					$db_answer = $db_worker->DumpAllRows($_POST);
+					$update_form_names = $db_worker->GetUpdateInputNames();
 					render("main.php", ["db_answer" => $db_answer,
-						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns)]);
+						"display_checkboxes" => $db_worker->GetHTMLSearchDisplayOptions($css_classes_display_columns),
+						"update_form_names" => $update_form_names]);
 				}
 				break;
             default:

@@ -6,7 +6,7 @@
  * Time: 0:07
  */
 ?>
-<form method="post" action="<?= REAL_DOCUMENT_ROOT . "index"?>.php">
+<form method="post" class="request" action="<?= REAL_DOCUMENT_ROOT . "index"?>.php">
     <div class="form-group">
         <div class="row">
             <div class="col-sm-7">
@@ -18,13 +18,14 @@
                         $non_unique = isset($table) && empty(DBWorker::GetInstance()->GetDBStructure()["database"][$table]["unique"]);
                     ?>
                     <div class="col-sm-<?= $non_unique ? 6 : 12?>">
-                        <form method="post">
-                            <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::DUMP_ALL_ACTION?>">
                             <?php if (isset($table)): ?>
                                 <input type="hidden" name="<?= DBWorker::TABLE_HTML_NAME?>" value="<?= $table?>">
                             <?php endif;?>
-                            <button type="submit" class="btn btn-block btn-info" style="margin: 25px 0">Показать всю таблицу</button>
-                        </form>
+                            <button type="submit" class="btn btn-block btn-info"
+                                    name="<?= DBWorker::ACTION_HTML_NAME?>"
+                                    value="<?= DBWorker::DUMP_ALL_ACTION?>"
+                                    style="margin: 25px 0">Показать всю таблицу
+                            </button>
                     </div>
                     <?php if ($non_unique): ?>
                     <div class="col-sm-6">
@@ -46,7 +47,9 @@
                 </div>
                 <input type="text" class="form-control" name="<?= DBWorker::QUERY_HTML_NAME?>" id="query" placeholder="Введите запрос">
                 <div class="input-group-btn">
-                    <button type="submit" id="submitGetFullInfo" class="btn btn-info">
+                    <button type="submit" id="submitGetFullInfo" class="btn btn-info"
+                            name="<?= DBWorker::ACTION_HTML_NAME?>"
+                            value="<?= DBWorker::GENERAL_REQUEST_ACTION?>">
                         <span class="glyphicon glyphicon-search"></span> Найти
                     </button>
                 </div>
@@ -59,9 +62,8 @@
             <?= $display_checkboxes?>
         </div>
     </div>
-    <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::GENERAL_REQUEST_ACTION?>">
 </form>
-<?php if (isset($db_answer)): dump($db_answer);
+<?php if (isset($db_answer)): //($db_answer);
     $multi_row_empty = true;
     if (isset($db_answer["multi_row"]))
         foreach ($db_answer["multi_row"] as $table_name => $contents)
@@ -90,12 +92,16 @@
                     <?php
                     foreach ($student as $column_name => $value)
                         echo "<th>$column_name</th>";
+                    echo "<th></th>";
                     ?>
                     </tr>
                     <tr>
                     <?php
                     foreach ($student as $column_name => $value)
                         echo "<td>$value</td>";
+                    echo "<td>" .
+                        get_update_form($update_form_names, $student, DBWorker::ACTION_HTML_NAME, DBWorker::UPDATE_ROW) .
+                        "</td>";
                     ?>
                     </tr>
                 </table>
@@ -103,7 +109,7 @@
             <?php foreach ($db_answer["multi_row"] as $table => $students):
                 $contract_number = reset($student);
                 if (key_exists($contract_number, $students)): ?>
-                <h4>Таблица <?= $table?></h4>
+                <h4><?= $table?></h4>
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <?php foreach ($students[$contract_number] as $i => $row):
@@ -131,12 +137,17 @@
                 if ($i === 0):?>
                     <tr class="info">
                         <?php foreach ($row as $column => $value)
-                            echo "<th>$column</th>"?>
+                            echo "<th>$column</th>";
+                        echo "<th></th>"?>
                     </tr>
                 <?php endif; ?>
                 <tr>
                     <?php foreach ($row as $column => $value)
-                        echo "<td>$value</td>"?>
+                        echo "<td>$value</td>";
+                    echo  "<td>" .
+						get_update_form($update_form_names, $row, DBWorker::ACTION_HTML_NAME, DBWorker::UPDATE_ROW) .
+						"</td>";
+                    ?>
                 </tr>
             <?php endforeach; ?>
             </table>

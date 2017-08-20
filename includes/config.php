@@ -33,13 +33,15 @@ interface IDBController
     function GetDBStructure();
     function GetHTMLSearchDisplayOptions();
     function GetHTMLAddNewForm();
-    function AddNewStudent($post);
-    function ProceedGeneralRequest($post);
-    function ProceedTableRequest($post, $table_name);
+    function AddNewStudent($form_data);
+    function ProceedGeneralRequest($form_data);
+    function ProceedTableRequest($form_data, $table_name);
     function ObfuscateColumnName($table, $column);
     function DeobfuscateColumnName($key);
     function GetLoginFormArray();
-    function DumpAllRows($table = "");
+    function DumpAllRows($form_data, $table = "");
+    function GetUpdateInputNames($table = null);
+    function UpdateRow($form_data);
 }
 
 //dump(exec("id"));

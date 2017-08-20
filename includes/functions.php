@@ -63,6 +63,35 @@ function render($template, $values = [])
     exit;
 }
 
+function get_update_form($update_names, $values, $submit_name, $submit_value)
+{
+	$placeholder_wrap = "%";
+	static $form_template = null;
+	if ($form_template === null)
+	{
+		$form_template = "<form method='post'>";
+		foreach ($update_names as $column_name=>$name)
+		{
+			$placeholder = $placeholder_wrap . $name . $placeholder_wrap;
+			$form_template .= "<input type='hidden' name='$name' value='$placeholder'>";
+		}
+		$form_template .= "<button type='submit' name='$submit_name' value='$submit_value' class='btn btn-sm btn-success'>" .
+			"<span class='glyphicon glyphicon-pencil'></span>" .
+			"</button>" .
+			"</form>";
+	}
+	$form = $form_template;
+	foreach ($update_names as $column_name=>$name)
+	{
+		$placeholder = $placeholder_wrap . $name . $placeholder_wrap;
+		if (key_exists($column_name, $values))
+			$form = str_replace($placeholder, $values[$column_name], $form);
+		else
+			$form = str_replace($placeholder, "", $form);
+	}
+	return $form;
+}
+
 function array_swap(&$array, $swap_a, $swap_b = 0){
     $temp = $array[$swap_a];
     $array[$swap_a] = $array[$swap_b];

@@ -1110,7 +1110,10 @@ class DBWorker implements IDBController
 			$success = false;
 			foreach ($queries as $query)
 			{
-				$success = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
+				if (isset($query["bind"]))
+					$success = $this->DBConnection->QueryWithBindingNoResults($query["query"], $query["parameters"]);
+				else
+					$success = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
 				if (!$success)
 				{
 					break;
@@ -1275,16 +1278,38 @@ class DBWorker implements IDBController
 	public function AddNewRow($form_data)
 	{
 		$change_columns = $this->GetChangeDatabaseArray($form_data, false);
-		if (count($change_columns["tables"]) === 0)
+		if (count($change_columns["tables"]) === 0 || !$this->CheckForExistence($change_columns["common_columns"]))
 			return false;
 		$queries = $this->GetInsertNewRowQueries($change_columns);
 		return $this->ProceedTransactionQueries($queries);
 	}
+	private function CheckForExistence($common_columns)
+	{
+		$results = [];
+		foreach ($common_columns as $column)
+			$results[$column] = false;
+		$first_table = null;
+		foreach ($this->studentDBStructure["database"] as $table => $table_info)
+			if (!empty($table_info["unique"]))
+			{
+				$first_table = $table;
+				break;
+			}
+		$query = "SELECT " . $this->GetColumnString(array_keys($common_columns)) . " FROM " . $first_table . $this->GetUpdateRowWherePiece($common_columns) . ";";
+		$results = $this->DBConnection->Query($query, array_values($common_columns));
+		if (!empty($results))
+			return true;
+		return false;
+	}
 	private function GetSpecialInputFields($table)
 	{
 		$functions = [
-			"parents" => function(DBWorker $self) {
-				return "<input type='number' step='0.01' name='" . $self::SUM_INPUT_HTML_NAME . "'/>";
+			"payments" => function(DBWorker $self) {
+				$name = $self::SUM_INPUT_HTML_NAME;
+				return "<div class='form-group'>
+						<label for='$name'>Сумма</label>
+						<input type='number' class='form-control' step='0.01' id='". $name . "' name='" . $name . "'/>
+				</div>";
 			}
 		];
 		if (!key_exists($table, $functions))
@@ -1294,12 +1319,12 @@ class DBWorker implements IDBController
 	private function AddSpecialColumns($form_data, &$change_columns)
 	{
 		$functions = [
-			"parents" => function(DBWorker $self, $form_data, &$change_columns) {
+			"payments" => function(DBWorker $self, $form_data, &$change_columns) {
 				$key = $self::SUM_INPUT_HTML_NAME;
-				$change_columns["parents"][$key] = $form_data[$key];
+				$change_columns["tables"]["payments"][$key] = $form_data[$key];
 			}
 		];
-		foreach ($change_columns as $table=>$columns_array)
+		foreach ($change_columns["tables"] as $table=>$columns_array)
 		{
 			if (key_exists($table, $functions))
 				$functions[$table]($this, $form_data, $change_columns);
@@ -1326,12 +1351,12 @@ class DBWorker implements IDBController
 	private function InsertRowPerformCalculations(&$queries, $change_columns, $table_name)
 	{
 		$functions = [
-			"parents" => function(DBWorker $self, &$queries, $change_columns) {
-				
+			"payments" => function(DBWorker $self, &$queries, $change_columns) {
 				$sum_key = $self::SUM_INPUT_HTML_NAME;
-				$sum = $change_columns["parents"][$sum_key];
+				$sum = $change_columns["tables"]["payments"][$sum_key];
+				unset($change_columns["tables"]["payments"][$sum_key]);
 				
-				$months_paid = floor($sum / $self::STUDENTS_MONTHLY_FEE);
+				$months_paid = (string)floor($sum / $self::STUDENTS_MONTHLY_FEE);
 				
 				$where_piece = $self::GetUpdateRowWherePiece($change_columns["common_columns"]);
 				$common_columns_values = array_values($change_columns["common_columns"]);
@@ -1340,10 +1365,8 @@ class DBWorker implements IDBController
 				{
 					$self->DBConnection->SetPDOFetchMode(PDO::FETCH_COLUMN);
 					$last_paid_date = $self->DBConnection->Query("SELECT MAX(`end_period`) FROM `payments`" . $where_piece . ";",
-						$common_columns_values);
-					if (!empty($last_paid_date))
-						$last_paid_date = $last_paid_date[0];
-					else
+						$common_columns_values)[0];
+					if ($last_paid_date === null)
 					{
 						$last_paid_date = $self->DBConnection->Query("SELECT `learning_start` FROM `contracts_info`" . $where_piece . ";",
 							$common_columns_values);
@@ -1352,24 +1375,40 @@ class DBWorker implements IDBController
 						if ($last_paid_date[0] !== "0000-00-00")
 							$last_paid_date = $last_paid_date[0];
 						else
+						{
+							$date_class = new DateTime();
+							$date_class->setDate(intval($date_class->format("Y")), 9, 1);
 							$last_paid_date = 0;
-						$change_columns["payments"]['start_period'] = $last_paid_date;
-						$change_columns["payments"]['period'] = $months_paid;
-						$payment_timestamp = $change_columns["payments"]['payment_timestamp'];
-						$query = "INSERT INTO `payments` (`contract_number`,";
-						if (!empty($payment_timestamp))
-							$query .= " `payment_timestamp`,";
-						$query .= " `start_period`, `end_period`, `payment_system`) VALUES (:contract_number,";
-						if (!empty($payment_timestamp))
-							$query .= " :payment_timestamp,";
-						$query .= " :start_period, DATE_ADD(:start_period, INTERVAL :period MONTH), :payment_system);";
-						
-						array_push($queries, ["query" => $query, "parameters" => array_merge($change_columns["common_columns"], $change_columns["payments"])]);
+						}
 						
 					}
 					$self->DBConnection->SetPDOFetchMode(PDO::FETCH_ASSOC);
+					
+					$change_columns["tables"]["payments"]['start_period'] = $last_paid_date;
+					$change_columns["tables"]["payments"]['period'] = $months_paid;
+					
+					$payment_timestamp = $change_columns["tables"]["payments"]['payment_timestamp'];
+					if (!empty($payment_timestamp))
+					{
+						$date_class = new DateTime($payment_timestamp);
+						$change_columns["tables"]["payments"]['payment_timestamp'] = $date_class->format("Y-m-d");
+					}
+					
+					$query = "INSERT INTO `payments` (`contract_number`,";
+					if (!empty($payment_timestamp))
+						$query .= " `payment_timestamp`,";
+					$query .= " `start_period`, `end_period`, `payment_system`) VALUES (:contract_number,";
+					if (!empty($payment_timestamp))
+						$query .= " :payment_timestamp,";
+					$query .= " :start_period, DATE_ADD(:start_period, INTERVAL :period MONTH), :payment_system);";
+					$parameters = array_merge($change_columns["common_columns"], $change_columns["tables"]["payments"]);
+					$parameters = array_combine(
+						array_map(function($value) { return ':' . $value; }, array_keys($parameters)),
+						$parameters
+					);
+					array_push($queries, ["query" => $query, "parameters" => $parameters, "bind" => true]);
 				}
-				$update_contract_info = ["query" => "UPDATE `payments` SET `paid_sum` = `paid_sum` + ?" . $where_piece . ";", "parameters" => array_merge([$sum], $common_columns_values)];
+				$update_contract_info = ["query" => "UPDATE `contracts_info` SET `paid_sum` = `paid_sum` + ?" . $where_piece . ";", "parameters" => array_merge([$sum], $common_columns_values)];
 				array_push($queries, $update_contract_info);
 			}
 		];

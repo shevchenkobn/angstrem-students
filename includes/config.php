@@ -45,6 +45,7 @@ interface IDBController
     function GetHTMLUpdateForm($row_data);
     function UpdateRow($form_data);
     function GetHTMLAddRowForm($table);
+    function AddNewRow($form_data);
 }
 
 //dump(exec("id"));

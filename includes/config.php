@@ -22,6 +22,7 @@ interface IDBConnection
     function QueryWithBinding($sql, $parameters);
     function Query($sql);
     function QueryNoResults($sql);
+	function QueryWithBindingNoResults($sql, $parameters);
     function SetPDOFetchMode($pdo_constant);
     function BeginTransaction();
     function CommitTransaction();
@@ -41,7 +42,9 @@ interface IDBController
     function GetLoginFormArray();
     function DumpAllRows($form_data, $table = "");
     function GetUpdateInputNames($table = null);
+    function GetHTMLUpdateForm($row_data);
     function UpdateRow($form_data);
+    function GetHTMLAddRowForm($table);
 }
 
 //dump(exec("id"));

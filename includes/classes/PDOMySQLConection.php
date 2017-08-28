@@ -67,15 +67,7 @@ class PDOMySQLConection implements IDBConnection
     {
         $parameters = $this->ValidateParameters(func_get_args());
         $statement = $this->PrepareQuery($sql);
-        $results = $statement->execute($parameters);
-        if ($results !== false)
-        {
-            return $statement->fetchAll($this->PDOFetchMode);
-        }
-        else
-        {
-            return false;
-        }
+		return $this->FetchResults($statement, $statement->execute($parameters));
     }
     public function QueryNoResults($sql)
     {
@@ -112,40 +104,54 @@ class PDOMySQLConection implements IDBConnection
 
     public function QueryWithBinding($sql, $parameters)
     {
-        $sql_pieces = ["SET ", " = ", ", ", ";"];
-        $count = count($parameters);
-        $i = 0;
-        $set_query = $sql_pieces[0];
-        foreach ($parameters as $name => $value)
-        {
-            $set_query .= str_replace(":", "@", $name) . $sql_pieces[1] . $name;
-
-            if ($i < $count - 1)
-            {
-                $set_query .= $sql_pieces[2];
-            }
-            else
-                $set_query .= $sql_pieces[3];
-            $i++;
-        }
-        $statement = $this->PrepareQuery($set_query);
-        foreach ($parameters as $name => &$value)
-            $statement->bindParam($name, $value);
-
-        $statement->execute();
-
-        $sql = str_replace(":", "@", $sql);
+        $this->SetParameterVariables($sql, $parameters);
+        
         $statement = $this->PrepareQuery($sql);
-        $results = $statement->execute();
-        if ($results !== false)
-        {
-            return $statement->fetchAll($this->PDOFetchMode);
-        }
-        else
-        {
-            return false;
-        }
+        return $this->FetchResults($statement, $statement->execute());
     }
+    private function SetParameterVariables(&$sql, $parameters)
+	{
+		$sql_pieces = ["SET ", " = ", ", ", ";"];
+		$count = count($parameters);
+		$i = 0;
+		$set_query = $sql_pieces[0];
+		foreach ($parameters as $name => $value)
+		{
+			$set_query .= str_replace(":", "@", $name) . $sql_pieces[1] . $name;
+			
+			if ($i < $count - 1)
+			{
+				$set_query .= $sql_pieces[2];
+			}
+			else
+				$set_query .= $sql_pieces[3];
+			$i++;
+		}
+		$statement = $this->PrepareQuery($set_query);
+		foreach ($parameters as $name => &$value)
+			$statement->bindParam($name, $value);
+		
+		$statement->execute();
+		
+		$sql = str_replace(":", "@", $sql);
+	}
+	private function FetchResults($statement, $results)
+	{
+		if ($results !== false)
+		{
+			return $statement->fetchAll($this->PDOFetchMode);
+		}
+		else
+		{
+			return false;
+		}
+	}
+    public function QueryWithBindingNoResults($sql, $parameters)
+	{
+		$this->SetParameterVariables($sql, $parameters);
+		$statement = $this->PrepareQuery($sql);
+		return $statement->execute();
+	}
     public function SetPDOFetchMode($pdo_constant)
     {
         if (is_int($pdo_constant) && $pdo_constant >= 0)

@@ -30,8 +30,7 @@
                     <?php if ($non_unique): ?>
                     <div class="col-sm-6">
                         <form method="post">
-                            <input type="hidden" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::DUMP_ALL_ACTION?>">
-                            <button type="submit" class="btn btn-block btn-success" style="margin: 25px 0">Добавить запись</button>
+                            <button type="submit" name="<?= DBWorker::ACTION_HTML_NAME?>" value="<?= DBWorker::GET_ADD_ROW_FORM_ACTION?>" class="btn btn-block btn-success" style="margin: 25px 0">Добавить запись</button>
                         </form>
                     </div>
                     <?php endif; ?>
@@ -100,7 +99,7 @@
                     foreach ($student as $column_name => $value)
                         echo "<td>$value</td>";
                     echo "<td>" .
-                        get_update_form($update_form_names, $student, DBWorker::ACTION_HTML_NAME, DBWorker::UPDATE_ROW) .
+                        get_update_form($update_form_names, $student, DBWorker::ACTION_HTML_NAME, DBWorker::GET_UPDATE_FORM_ACTION) .
                         "</td>";
                     ?>
                     </tr>
@@ -145,7 +144,7 @@
                     <?php foreach ($row as $column => $value)
                         echo "<td>$value</td>";
                     echo  "<td>" .
-						get_update_form($update_form_names, $row, DBWorker::ACTION_HTML_NAME, DBWorker::UPDATE_ROW) .
+						get_update_form($update_form_names, $row, DBWorker::ACTION_HTML_NAME, DBWorker::GET_UPDATE_FORM_ACTION) .
 						"</td>";
                     ?>
                 </tr>

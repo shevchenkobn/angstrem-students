@@ -14,14 +14,23 @@ class DBWorker implements IDBController
 {
     private static function InitializeConstants()
     {
-        self::$STUDENT_DB_STRUCTURES_JSON["RU"] = realpath(__DIR__."/../../")."/database_info/db_structure_ru.json";
-
-        self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"] = realpath(__DIR__."/../../")."/database_info/dictionary_ru.php";
-
-        self::$STAFF_COLUMNS_ARRAY_FILE = realpath(__DIR__."/../../")."/database_info/staff_columns.php";
-        self::$COLUMN_OBFUSCATOR_FILE = realpath(__DIR__."/../../")."/database_info/column_obfuscator.json";
-        self::$TABLE_ORDER_FILE = realpath(__DIR__."/../../")."/database_info/table_order.php";
-        self::$ADD_NEW_STUDENT_COLUMNS = realpath(__DIR__."/../../")."/database_info/add_new_tables.php";
+    	if (empty(self::$STUDENT_DB_STRUCTURES_JSON["RU"]))
+        	self::$STUDENT_DB_STRUCTURES_JSON["RU"] = realpath(__DIR__."/../../")."/database_info/db_structure_ru.json";
+	
+		if (empty(self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"]))
+        	self::$STUDENT_DB_DICTIONARIES_ARRAYS["RU"] = realpath(__DIR__."/../../")."/database_info/dictionary_ru.php";
+	
+		if (empty(self::$STAFF_COLUMNS_ARRAY_FILE))
+        	self::$STAFF_COLUMNS_ARRAY_FILE = realpath(__DIR__ . "/../../")."/database_info/staff_tables.php";
+		if (empty(self::$COLUMN_OBFUSCATOR_FILE))
+        	self::$COLUMN_OBFUSCATOR_FILE = realpath(__DIR__."/../../")."/database_info/column_obfuscator.json";
+		if (empty(self::$TABLE_ORDER_FILE))
+        	self::$TABLE_ORDER_FILE = realpath(__DIR__."/../../")."/database_info/table_order.php";
+		if (empty(self::$ADD_NEW_STUDENT_COLUMNS))
+        	self::$ADD_NEW_STUDENT_COLUMNS = realpath(__DIR__."/../../")."/database_info/add_new_tables.php";
+			
+		if (empty(self::$MULTI_ROW_SPECIAL_ADDING_TABLES))
+        	self::$MULTI_ROW_SPECIAL_ADDING_TABLES = realpath(__DIR__."/../../")."/database_info/special_adding_tables.php";
     }
     public static function GetInstance($language = "RU")
     {
@@ -34,12 +43,13 @@ class DBWorker implements IDBController
     }
     private static $instance;
 
-    private static $STUDENT_DB_STRUCTURES_JSON = [];
-    private static $STUDENT_DB_DICTIONARIES_ARRAYS = [];
-    private static $STAFF_COLUMNS_ARRAY_FILE = "";
-    private static $COLUMN_OBFUSCATOR_FILE = "";
-    private static $TABLE_ORDER_FILE = "";
-    private static $ADD_NEW_STUDENT_COLUMNS = "";
+    public static $STUDENT_DB_STRUCTURES_JSON = [];
+    public static $STUDENT_DB_DICTIONARIES_ARRAYS = [];
+    public static $STAFF_COLUMNS_ARRAY_FILE = "";
+    public static $COLUMN_OBFUSCATOR_FILE = "";
+    public static $TABLE_ORDER_FILE = "";
+    public static $ADD_NEW_STUDENT_COLUMNS = "";
+    public static $MULTI_ROW_SPECIAL_ADDING_TABLES = "";
     
     const STUDENTS_MONTHLY_FEE = 650;
     
@@ -49,13 +59,17 @@ class DBWorker implements IDBController
     const QUERY_HTML_NAME = "q";
     const ACTION_HTML_NAME = "a";
     const TABLE_HTML_NAME = "t";
+    const SUM_INPUT_HTML_NAME = "s";
     
     const MATCH_AGAINST_PARAMETER = ":query";
     
     const GENERAL_REQUEST_ACTION = "full";
     const DUMP_ALL_ACTION = "all";
     const ADD_NEW_ACTION = "n";
-    const UPDATE_ROW = "u";
+    const GET_UPDATE_FORM_ACTION = "uf";
+    const UPDATE_ROW_ACTION = "u";
+    const GET_ADD_ROW_FORM_ACTION = "gar";
+    const ADD_ROW_ACTION = "ar";
     
     const OBFUSCATOR_KEY_PREFIX = "_";
     
@@ -74,6 +88,7 @@ class DBWorker implements IDBController
     private $addNewStudentTables;
     private $requestColumns;
     private $lastRequest;
+    private $specialAddingTables;
 
     private $whereMatchAgainst = null;
 
@@ -104,6 +119,8 @@ class DBWorker implements IDBController
 			$this->addNewStudentTables = require self::$ADD_NEW_STUDENT_COLUMNS;
 		else
 			$this->tableOrderArray = [];
+		
+		$this->specialAddingTables = require self::$MULTI_ROW_SPECIAL_ADDING_TABLES;
     }
 
     public function GetDBStructure()
@@ -344,10 +361,13 @@ class DBWorker implements IDBController
     public function ProceedGeneralRequest($form_data)
     {
         $request_columns = $this->GetRequestedColumnsArray($form_data);
-
+		
+        if (empty($request_columns["query"]))
+        	return [];
         $query = $this->PrepareQuery($request_columns["query"]);
 
         $single_row_query = $this->GetGeneralSelectQuery($request_columns["single_row"], $query);
+        
 
         // multi-row query preparations
         $multi_row_queries = [];
@@ -612,7 +632,7 @@ class DBWorker implements IDBController
         else
         {
         	$this->lastRequest = self::REQUEST_TYPE_TABLE;
-            $table_type = $this->GetTableTypeByRowNumber($table);
+            $table_type = $this->GetTableTypeByRowsNumber($table);
 
             $request_columns[$table_type] = $this->studentDBStructure["common_columns"];
             foreach ($form_data as $key => $value)
@@ -717,7 +737,8 @@ class DBWorker implements IDBController
     public function ProceedTableRequest($form_data, $table_name)
     {
         $request_columns = $this->GetRequestedColumnsArray($form_data, $table_name);
-        $table_type = "";
+        if (empty($request_columns["query"]))
+        	return [];
         if (isset($request_columns["single_row"]))
             $table_type = "single_row";
         else
@@ -853,32 +874,7 @@ class DBWorker implements IDBController
             $insert_values = array_merge($insert_data["common_columns"], $columns);
             array_push($queries, $this->GetInsertQuery($insert_values, $table_name));
         }
-        try
-        {
-            $this->DBConnection->BeginTransaction();
-            $success = false;
-            foreach ($queries as $query)
-            {
-                $success = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
-				if (!$success)
-				{
-					break;
-				}
-            }
-            $result = true;
-            if (!$success)
-            {
-                $this->DBConnection->RollbackTransaction();
-                $result = false;
-            }
-            else
-                $this->DBConnection->CommitTransaction();
-            return $result;
-        }
-        catch (Exception $exception)
-        {
-            return $exception;
-        }
+        return $this->ProceedTransactionQueries($queries);
     }
     private function GetChangeDatabaseArray($form_data, $insert_new = true)
     {
@@ -888,7 +884,11 @@ class DBWorker implements IDBController
         {
             if ($key == self::ACTION_HTML_NAME)
                 continue;
+			if ($key == self::TABLE_HTML_NAME)
+				continue;
             $column_name = $this->DeobfuscateColumnName($key);
+            if ($key == $this->DeobfuscateColumnName($key))
+            	continue;
             if (!is_int(array_search($column_name["column"], $this->studentDBStructure["common_columns"])))
             {
                 if (!key_exists($column_name["table"], $changing_tables))
@@ -907,7 +907,9 @@ class DBWorker implements IDBController
 					$changing_tables[$table_name] = array_fill_keys($columns, "");
 				}
 			}
-        return ["tables" => $changing_tables, "common_columns" => $common_columns];
+		$changing_tables = ["tables" => $changing_tables, "common_columns" => $common_columns];
+        $this->AddSpecialColumns($form_data, $changing_tables);
+        return $changing_tables;
     }
     private function GetInsertQuery($insert_values, $table_name)
     {
@@ -946,7 +948,7 @@ class DBWorker implements IDBController
 		}
 		else
 		{
-			$table_type = $this->GetTableTypeByRowNumber($table);
+			$table_type = $this->GetTableTypeByRowsNumber($table);
 			$sql = $this->GetSimpleSelectAllQuery($requested_columns[$table_type], $table);
 		}
 //		dump($sql);
@@ -999,7 +1001,7 @@ class DBWorker implements IDBController
 		}
 		else
 		{
-			$table_type = $this->GetTableTypeByRowNumber($table);
+			$table_type = $this->GetTableTypeByRowsNumber($table);
 			foreach ($this->studentDBStructure["database"][$table]["entity"] as $column_name => $column_info)
 			{
 				$obfuscation = $this->ObfuscateColumnName($table, $column_name);
@@ -1017,7 +1019,7 @@ class DBWorker implements IDBController
 		}
 		return $input_names;
 	}
-	private function GetTableTypeByRowNumber($table)
+	private function GetTableTypeByRowsNumber($table)
 	{
 		if (!empty($this->studentDBStructure["database"][$table]["unique"]))
 			return "single_row";
@@ -1026,11 +1028,353 @@ class DBWorker implements IDBController
 	}
 	public function UpdateRow($form_data)
 	{
-		// TODO: Implement UpdateRow() method.
+		$update_columns = $this->GetUpdateRowValuesArray($form_data);
+		if ($update_columns === false)
+			return ["error" => $this->GetErrorMessage("no_where_piece")];
+		$queries = [];
+		foreach ($update_columns["update_tables"] as $table => $columns)
+			array_push($queries, $this->GetUpdateRowQuery($columns, $table, $update_columns["common_columns"]));
+		$result = $this->ProceedTransactionQueries($queries);
+		if ($result === false || $result !== true && key_exists("error", $result))
+			return $result;
+		$repair_query = $this->GetRepairTablesQuery(array_keys($update_columns["update_tables"]));
+		return $this->ProceedTransactionQuery($repair_query);
 	}
 	private function GetUpdateRowValuesArray($form_data)
 	{
-	
+		$update_columns = [];
+		$common_columns = [];
+		foreach ($form_data as $name => $value)
+		{
+			if ($name === self::ACTION_HTML_NAME)
+				continue;
+			$column_name = $this->DeobfuscateColumnName($name);
+			if (array_search($column_name["column"], $this->studentDBStructure["common_columns"]) !== false)
+				$common_columns[$column_name["column"]] = $value;
+			else
+			{
+				if (!key_exists($column_name["table"], $update_columns))
+					$update_columns[$column_name["table"]] = [];
+				$update_columns[$column_name["table"]][$column_name["column"]] = $value;
+			}
+		}
+		if (!empty($common_columns))
+			return ["update_tables" => $update_columns, "common_columns" => $common_columns];
+		else
+			return false;
+	}
+	private function GetUpdateRowQuery($columns, $table_name, $common_columns)
+	{
+		$sql_pieces = ["UPDATE ", " SET ", ";"];
+		$query = $sql_pieces[0] . $this->EscapeTableIdentifier($table_name) . $sql_pieces[1];
+		$query .= $this->GetUpdateColumnsString($columns);
+		$query .= $this->GetUpdateRowWherePiece($common_columns);
+		$parameters = array_merge(array_values($columns), array_values($common_columns));
+		return ["query" => $query . $sql_pieces[2], "parameters" => $parameters];
+	}
+	private function GetUpdateColumnsString($columns)
+	{
+		$sql_pieces = [" = ", "?", ", "];
+		$string = "";
+		$is_first = true;
+		foreach ($columns as $name => $value)
+		{
+			if (!$is_first)
+				$string .= $sql_pieces[2];
+			else
+				$is_first = false;
+			$string .= $this->EscapeTableIdentifier($name) . $sql_pieces[0] . $sql_pieces[1];
+		}
+		return $string;
+	}
+	private function GetUpdateRowWherePiece($common_columns)
+	{
+		$sql_pieces = [" WHERE ", " = ", "?", " AND "];
+		$string = $sql_pieces[0];
+		$is_first = true;
+		foreach ($common_columns as $name => $value)
+		{
+			if (!$is_first)
+				$string .= $sql_pieces[3];
+			else
+				$is_first = false;
+			$string .= $this->EscapeTableIdentifier($name) . $sql_pieces[1] . $sql_pieces[2];
+		}
+		return $string;
+	}
+	private function ProceedTransactionQueries($queries)
+	{
+		try
+		{
+			$this->DBConnection->BeginTransaction();
+			$success = false;
+			foreach ($queries as $query)
+			{
+				$success = $this->DBConnection->QueryNoResults($query["query"], $query["parameters"]);
+				if (!$success)
+				{
+					break;
+				}
+			}
+			$result = true;
+			if (!$success)
+			{
+				$this->DBConnection->RollbackTransaction();
+				$result = false;
+			}
+			else
+				$this->DBConnection->CommitTransaction();
+			return $result;
+		}
+		catch (Exception $exception)
+		{
+			return ["error" => $this->GetErrorMessage(), "exception" => $exception];
+		}
+	}
+	private function ProceedTransactionQuery($query, $parameters = [])
+	{
+		try
+		{
+			$this->DBConnection->BeginTransaction();
+			$success = $this->DBConnection->QueryNoResults($query, $parameters);
+			$result = true;
+			if (!$success)
+			{
+				$this->DBConnection->RollbackTransaction();
+				$result = false;
+			}
+			else
+				$this->DBConnection->CommitTransaction();
+			return $result;
+		}
+		catch (Exception $exception)
+		{
+			return ["error" => $this->GetErrorMessage(), "exception" => $exception];
+		}
+	}
+	private function GetRepairTablesQuery($tables, $quick = true)
+	{
+		$sql_pieces = ["REPAIR TABLE ", " QUICK", ";"];
+		$query = $sql_pieces[0] . $this->GetColumnString($tables);
+		if ($quick)
+			$query .= $sql_pieces[1];
+		return $query . $sql_pieces[2];
+	}
+	public function GetHTMLUpdateForm($row_data)
+	{
+		$common_columns = "";
+		$inputs = "<div class='form-inline'>";
+		foreach ($row_data as $name => $value)
+		{
+			if ($name === self::ACTION_HTML_NAME)
+				continue;
+			$column_name = $this->DeobfuscateColumnName($name);
+			$column = $column_name["column"];
+			$table = $column_name["table"];
+			if (array_search($column, $this->studentDBStructure["common_columns"]) !== false)
+			{
+				$common_columns .= "<div class='form-group'>" .
+					"<label for='$name'>{$this->studentDBStructure["database"][$table]["entity"][$column]["translation"]}</label>" .
+					"<input type='text' class='form-control' name='$name' value='$value' readonly>".
+					"</div>";
+			}
+			else
+			{
+				$column_info = $this->studentDBStructure["database"][$table]["entity"][$column];
+				if (!isset($column_info["options"]))
+				{
+					$type = "text";
+					if (strpos($column_info["type"], "int(") !== false)
+						$type = "number";
+					elseif (!empty(strpos_arr($column_info["type"], ["float(", "double(", "decimal("])))
+						$type = "number' step='0.01";
+					elseif (!empty($result = strpos_arr($column_info["type"], ["date", "time"])))
+					{
+						$type = "";
+						if (isset($result["date"]))
+							$type .= "date";
+						if (isset($result["time"]))
+							$type .= "time";
+					}
+					$inputs .= "<div class='form-group'>" .
+						"<label for='$name'>{$this->studentDBStructure["database"][$table]["entity"][$column]["translation"]}</label>" .
+						"<input type='$type' class='form-control' name='$name' value='$value'>".
+						"</div>";
+				}
+				else
+				{
+					$inputs .= "<div class='form-group'>" .
+						"<label for='$name'>{$this->studentDBStructure["database"][$table]["entity"][$column]["translation"]}</label>" .
+						"<div class='select'><select class='selectpicker' name='$name' id='$name' title='{$column_info["translation"]}'>";
+					foreach ($column_info["options"] as $option)
+						$inputs .= "<option value='$option'". ($option === $value ? " selected" : "") .">$option</option>";
+					$inputs .= "</select></div></div>";
+				}
+			}
+		}
+		if (empty($common_columns))
+			return "<div class=\"alert alert-danger\">
+				<strong>Ученик для изменения не определен</strong>
+			</div>";
+		else
+		{
+			$inputs .= "</div>";
+			$submit = "<button class='btn btn-block btn-success' type='submit' name='" . self::ACTION_HTML_NAME . "' value='" . self::UPDATE_ROW_ACTION . "'>Изменить</button>";
+			return "<form action='index.php' method='post'>" . $common_columns . $inputs . $submit . "</form>";
+		}
+	}
+	public function GetHTMLAddRowForm($table)
+	{
+		if (!empty($this->studentDBStructure["database"][$table]["unique"]))
+			return "";
+		$html_form = "<form method='post' action='index.php'><div class='form-inline'>";
+		$is_special_table = key_exists($table, $this->specialAddingTables);
+		$has_excluded_columns = false;
+		if ($is_special_table)
+			$has_excluded_columns = key_exists("exclude", $this->specialAddingTables[$table]);
+		foreach ($this->studentDBStructure["database"][$table]["entity"] as $column_name => $column_info)
+		{
+			if ($has_excluded_columns && array_search($column_name, $this->specialAddingTables[$table]["exclude"]) !== false)
+				continue;
+			$obfuscated_name = $this->ObfuscateColumnName($table, $column_name);
+			if (!isset($column_info["options"]))
+			{
+				$type = "text";
+				if (strpos($column_info["type"], "int(") !== false)
+					$type = "number";
+				elseif (!empty(strpos_arr($column_info["type"], ["float(", "double(", "decimal("])))
+					$type = "number' step='0.01";
+				elseif (!empty($result = strpos_arr($column_info["type"], ["date", "time"])))
+				{
+					if (isset($result["date"]) && isset($result["time"]) || $column_info["type"] === "timestamp")
+						$type = "datetime-local";
+					else
+						$type = "date";
+				}
+				$html_form .= "<div class=\"form-group\">
+                                <label for='$obfuscated_name'>{$column_info["translation"]}</label>
+                                <input type='$type' class=\"form-control\" id='$obfuscated_name' name='$obfuscated_name'>
+                            </div>";
+			}
+			else
+			{
+				$html_form .= "<div class='form-group'>
+                                <div class='select'><select class='selectpicker'  name='$obfuscated_name' id='$obfuscated_name' title='{$column_info["translation"]}'>";
+				foreach ($column_info["options"] as $option)
+					$html_form .= "<option value='$option'>$option</option>";
+				$html_form .= "</select></div></div>";
+			}
+		}
+		$html_form .= $this->GetSpecialInputFields($table);
+		$html_form .= "<input type='hidden' name='" . self::TABLE_HTML_NAME . "' value='$table'>" .
+			"<input type='hidden' name='" . self::ACTION_HTML_NAME . "' value='" . self::ADD_ROW_ACTION . "'>".
+			"<button type='submit' class='btn btn-block btn-success'>Добавить</buttontype>" .
+			"</div></form>";
+		return $html_form;
+	}
+	public function AddNewRow($form_data)
+	{
+		$change_columns = $this->GetChangeDatabaseArray($form_data, false);
+		if (count($change_columns["tables"]) === 0)
+			return false;
+		$queries = $this->GetInsertNewRowQueries($change_columns);
+		return $this->ProceedTransactionQueries($queries);
+	}
+	private function GetSpecialInputFields($table)
+	{
+		$functions = [
+			"parents" => function(DBWorker $self) {
+				return "<input type='number' step='0.01' name='" . $self::SUM_INPUT_HTML_NAME . "'/>";
+			}
+		];
+		if (!key_exists($table, $functions))
+			return "";
+		return $functions[$table]($this);
+	}
+	private function AddSpecialColumns($form_data, &$change_columns)
+	{
+		$functions = [
+			"parents" => function(DBWorker $self, $form_data, &$change_columns) {
+				$key = $self::SUM_INPUT_HTML_NAME;
+				$change_columns["parents"][$key] = $form_data[$key];
+			}
+		];
+		foreach ($change_columns as $table=>$columns_array)
+		{
+			if (key_exists($table, $functions))
+				$functions[$table]($this, $form_data, $change_columns);
+		}
+	}
+	private function GetInsertNewRowQueries($change_columns)
+	{
+		$queries = [];
+		
+		foreach ($change_columns["tables"] as $table_name => $columns)
+		{
+			if (key_exists($table_name, $this->specialAddingTables))
+			{
+				$this->InsertRowPerformCalculations($queries, $change_columns, $table_name);
+			}
+			else
+			{
+				$insert_values = array_merge($change_columns["common_columns"], $columns);
+				array_push($queries, $this->GetInsertQuery($insert_values, $table_name));
+			}
+		}
+		return $queries;
+	}
+	private function InsertRowPerformCalculations(&$queries, $change_columns, $table_name)
+	{
+		$functions = [
+			"parents" => function(DBWorker $self, &$queries, $change_columns) {
+				
+				$sum_key = $self::SUM_INPUT_HTML_NAME;
+				$sum = $change_columns["parents"][$sum_key];
+				
+				$months_paid = floor($sum / $self::STUDENTS_MONTHLY_FEE);
+				
+				$where_piece = $self::GetUpdateRowWherePiece($change_columns["common_columns"]);
+				$common_columns_values = array_values($change_columns["common_columns"]);
+				
+				if ($months_paid > 0)
+				{
+					$self->DBConnection->SetPDOFetchMode(PDO::FETCH_COLUMN);
+					$last_paid_date = $self->DBConnection->Query("SELECT MAX(`end_period`) FROM `payments`" . $where_piece . ";",
+						$common_columns_values);
+					if (!empty($last_paid_date))
+						$last_paid_date = $last_paid_date[0];
+					else
+					{
+						$last_paid_date = $self->DBConnection->Query("SELECT `learning_start` FROM `contracts_info`" . $where_piece . ";",
+							$common_columns_values);
+						
+						// for case if learning_start is not specified
+						if ($last_paid_date[0] !== "0000-00-00")
+							$last_paid_date = $last_paid_date[0];
+						else
+							$last_paid_date = 0;
+						$change_columns["payments"]['start_period'] = $last_paid_date;
+						$change_columns["payments"]['period'] = $months_paid;
+						$payment_timestamp = $change_columns["payments"]['payment_timestamp'];
+						$query = "INSERT INTO `payments` (`contract_number`,";
+						if (!empty($payment_timestamp))
+							$query .= " `payment_timestamp`,";
+						$query .= " `start_period`, `end_period`, `payment_system`) VALUES (:contract_number,";
+						if (!empty($payment_timestamp))
+							$query .= " :payment_timestamp,";
+						$query .= " :start_period, DATE_ADD(:start_period, INTERVAL :period MONTH), :payment_system);";
+						
+						array_push($queries, ["query" => $query, "parameters" => array_merge($change_columns["common_columns"], $change_columns["payments"])]);
+						
+					}
+					$self->DBConnection->SetPDOFetchMode(PDO::FETCH_ASSOC);
+				}
+				$update_contract_info = ["query" => "UPDATE `payments` SET `paid_sum` = `paid_sum` + ?" . $where_piece . ";", "parameters" => array_merge([$sum], $common_columns_values)];
+				array_push($queries, $update_contract_info);
+			}
+		];
+		if (key_exists($table_name, $functions))
+			$functions[$table_name]($this, $queries, $change_columns);
 	}
 }
-class DatabaseException extends Exception {}
+class DatabaseStructureException extends Exception {}

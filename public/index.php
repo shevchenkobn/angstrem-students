@@ -92,6 +92,33 @@ elseif ($_SERVER["REQUEST_METHOD"] === "POST")
 						"update_form_names" => $update_form_names]);
 				}
 				break;
+			case DBWorker::GET_UPDATE_FORM_ACTION:
+				render("update_row.php", [
+					'title' => "Изменить информацию об ученике",
+					'form' => $db_worker->GetHTMLUpdateForm($_POST)
+				]);
+				break;
+			case DBWorker::UPDATE_ROW_ACTION:
+				$result = $db_worker->UpdateRow($_POST);
+				if (is_array($result) && isset($result["error"]))
+					$result = false;
+				render("update_result.php", [
+					"title" => "Изменение данных об ученике",
+					"result" => $result
+				]);
+				break;
+			case DBWorker::GET_ADD_ROW_FORM_ACTION:
+				if (!isset($_POST[DBWorker::TABLE_HTML_NAME]))
+					redirect("index.php");
+				$table = $_POST[DBWorker::TABLE_HTML_NAME];
+				$form = $db_worker->GetHTMLAddRowForm($table);
+				$tranlation = $db_worker->GetDBStructure()["database"][$table]["translation"];
+				render("add_new_row.php", ["form" => $form, "title" => "Добавить новую запись об ученике в таблицу «{$tranlation}»"]);
+				break;
+			case DBWorker::ADD_ROW_ACTION:
+				dump($db_worker->AddNewRow($_POST));
+				echo "<a href='index.php'>to main</a>";
+				break;
             default:
                 $table = $_POST[DBWorker::ACTION_HTML_NAME];
                 if (in_array($table, $tables))
